@@ -55,6 +55,8 @@
   let bundle: FieldBundle | null = null;
   let activeTab: 'replay' | 'analisis' | 'tanah3d' | 'lahan' = 'replay';
   let mapLayer: 'yield' | 'clay' | 'ndvi' = 'yield';
+  let isEmbed = false;
+  let copyNotice = '';
   let wasmGddFinal: number | null = null;
   let fieldOls: OlsSummary | null = null;
   let dayIdx = 74;
@@ -214,7 +216,77 @@
     window.localStorage.setItem('agri_theme', theme);
   }
 
+  function buildPermalink(): string {
+    const u = new URL(window.location.href);
+    u.searchParams.set('tab', activeTab);
+    u.searchParams.set('layer', mapLayer);
+    u.searchParams.set('day', String(dayIdx));
+    if (selectedPlotId) u.searchParams.set('plot', selectedPlotId);
+    u.searchParams.delete('embed');
+    return u.toString();
+  }
+
+  async function copyPermalink() {
+    const urlStr = buildPermalink();
+    window.history.replaceState(null, '', urlStr);
+    try {
+      await navigator.clipboard.writeText(urlStr);
+      copyNotice = 'Permalink tersalin ke papan klip.';
+    } catch {
+      copyNotice = urlStr;
+    }
+  }
+
+  async function copyEmbed() {
+    const u = new URL(buildPermalink());
+    u.searchParams.set('embed', '1');
+    const code = `<iframe src="${u.toString()}" width="100%" height="680" style="border:1px solid #E7E7E7" loading="lazy" title="Panen-ID Musim Ulang"></iframe>`;
+    try {
+      await navigator.clipboard.writeText(code);
+      copyNotice = 'Kode embed <iframe> tersalin.';
+    } catch {
+      copyNotice = code;
+    }
+  }
+
+  function exportSubsetGeoJson() {
+    if (!bundle) return;
+    const fc = {
+      type: 'FeatureCollection',
+      name: `panen_id_${bundle.field_id}_${bundle.season_id}`,
+      metadata: {
+        source: 'agri.transbulent.id/ulang',
+        attribution: 'Agri Transbulent / Transbulent Research Group (agri.transbulent.id)',
+        field_id: bundle.field_id,
+        season_id: bundle.season_id,
+        regency: bundle.regency,
+        day_date: activeDate,
+        gdd_cum: bundle.gdd_cum[dayIdx] ?? 0,
+        is_simulated: bundle.is_simulated,
+      },
+      features: bundle.plots.features.map((f) => ({
+        ...f,
+        properties: {
+          ...f.properties,
+          field_id: bundle.field_id,
+          season_id: bundle.season_id,
+          day_date: activeDate,
+          is_simulated: bundle.is_simulated,
+        },
+      })),
+    };
+    const blob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${bundle.field_id}-${bundle.season_id}-subset.geojson`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   onMount(async () => {
+    const qs = new URLSearchParams(window.location.search);
+    isEmbed = qs.get('embed') === '1';
+
     const savedTheme = window.localStorage.getItem('agri_theme');
     if (savedTheme === 'malam' || savedTheme === 'kertas') {
       theme = savedTheme;
@@ -226,6 +298,15 @@
     if (window.location.pathname.includes('klaten')) fieldId = 'klaten-irigasi';
     if (window.location.pathname.includes('lahan-saya')) activeTab = 'lahan';
     await loadField(fieldId);
+
+    const qTab = qs.get('tab');
+    if (qTab === 'replay' || qTab === 'analisis' || qTab === 'tanah3d' || qTab === 'lahan') activeTab = qTab;
+    const qLayer = qs.get('layer');
+    if (qLayer === 'yield' || qLayer === 'clay' || qLayer === 'ndvi') mapLayer = qLayer;
+    const qDay = Number(qs.get('day'));
+    if (Number.isInteger(qDay) && bundle && qDay >= 0 && qDay < bundle.dates.length) dayIdx = qDay;
+    const qPlot = qs.get('plot');
+    if (qPlot && bundle?.plots.features.some((f) => f.properties.plot_id === qPlot)) selectedPlotId = qPlot;
 
     map = new maplibregl.Map({
       container: mapContainer,
@@ -274,55 +355,57 @@
 </script>
 
 <div style="min-height: 100vh; display: flex; flex-direction: column;">
-  <div class="agri-spectrum-banner">
-    MUSIM ULANG (PANEN-ID) · HASIL PANEN × 6 HORIZON TANAH × CUACA GDD + FAO-56 · SIMULASI MOCK P1
-  </div>
-
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a href="/" class="brand-link">
-        <span class="brand-box">AG</span>
-        <span>agri.transbulent.id</span>
-      </a>
-
-      <nav class="hnav" aria-label="Navigasi">
-        <a href="/">Beranda</a>
-        <a href="/ulang/bompon-magelang/mt2-2025/" class="on">Musim Ulang</a>
-        <a href="/kekeringan/">Kekeringan</a>
-        <a href="/metode/">Metode</a>
-        <a href="/lobby/">Lobby</a>
-      </nav>
-
-      <div style="display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap;">
-        <button
-          type="button"
-          class={fieldId === 'bompon-magelang' ? 'btn-primary' : 'btn-subtle'}
-          on:click={() => loadField('bompon-magelang')}
-        >
-          DAS Bompon
-        </button>
-        <button
-          type="button"
-          class={fieldId === 'klaten-irigasi' ? 'btn-primary' : 'btn-subtle'}
-          on:click={() => loadField('klaten-irigasi')}
-        >
-          Irigasi Klaten
-        </button>
-        {#if authenticated}
-          <span class="live-badge"><span class="live-dot"></span><span>{userEmail}</span></span>
-        {:else}
-          <a href="/lobby/" class="live-badge">
-            <span class={`live-dot ${remainingSec <= 60 ? 'is-warn' : ''}`}></span>
-            <span>Pratinjau</span>
-            <b>{formatMmSs(remainingSec)}</b>
-          </a>
-        {/if}
-        <button type="button" class="btn-subtle" on:click={toggleTheme}>
-          {theme === 'kertas' ? 'Malam' : 'Putih'}
-        </button>
-      </div>
+  {#if !isEmbed}
+    <div class="agri-spectrum-banner">
+      MUSIM ULANG (PANEN-ID) · HASIL PANEN × 6 HORIZON TANAH × CUACA GDD + FAO-56 · SIMULASI MOCK P1
     </div>
-  </header>
+
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a href="/" class="brand-link">
+          <span class="brand-box">AG</span>
+          <span>agri.transbulent.id</span>
+        </a>
+
+        <nav class="hnav" aria-label="Navigasi">
+          <a href="/">Beranda</a>
+          <a href="/ulang/bompon-magelang/mt2-2025/" class="on">Musim Ulang</a>
+          <a href="/kekeringan/">Kekeringan</a>
+          <a href="/metode/">Metode</a>
+          <a href="/lobby/">Lobby</a>
+        </nav>
+
+        <div style="display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap;">
+          <button
+            type="button"
+            class={fieldId === 'bompon-magelang' ? 'btn-primary' : 'btn-subtle'}
+            on:click={() => loadField('bompon-magelang')}
+          >
+            DAS Bompon
+          </button>
+          <button
+            type="button"
+            class={fieldId === 'klaten-irigasi' ? 'btn-primary' : 'btn-subtle'}
+            on:click={() => loadField('klaten-irigasi')}
+          >
+            Irigasi Klaten
+          </button>
+          {#if authenticated}
+            <span class="live-badge"><span class="live-dot"></span><span>{userEmail}</span></span>
+          {:else}
+            <a href="/lobby/" class="live-badge">
+              <span class={`live-dot ${remainingSec <= 60 ? 'is-warn' : ''}`}></span>
+              <span>Pratinjau</span>
+              <b>{formatMmSs(remainingSec)}</b>
+            </a>
+          {/if}
+          <button type="button" class="btn-subtle" on:click={toggleTheme}>
+            {theme === 'kertas' ? 'Malam' : 'Putih'}
+          </button>
+        </div>
+      </div>
+    </header>
+  {/if}
 
   <main style="flex: 1; display: grid; grid-template-columns: 1.25fr 0.95fr; min-height: 620px;">
     <!-- Kolom Kiri: Peta + Timeline Scrubber + uPlot -->
@@ -455,6 +538,15 @@
           />
         {:else}
           <LahanSayaPanel />
+        {/if}
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; border-top: 1px solid var(--border); padding-top: 10px;">
+          <button type="button" class="btn-subtle" on:click={copyPermalink}>Salin Permalink</button>
+          <button type="button" class="btn-subtle" on:click={copyEmbed}>Salin Embed</button>
+          <button type="button" class="btn-subtle" on:click={exportSubsetGeoJson}>Ekspor GeoJSON</button>
+        </div>
+        {#if copyNotice}
+          <div class="num" style="font-size: 10.5px; color: var(--ink-muted); word-break: break-all;">{copyNotice}</div>
         {/if}
 
         <a href={`/kekeringan/${bundle.linked_kode_bps}/`} class="btn-outline">

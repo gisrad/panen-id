@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: "Panen-ID (Musim Ulang / Season Replay): Observatorium Agronomi Presisi Lahan"
+message: "Jika menggunakan modul atau data simulasi/satelit ini, harap sitasi sebagai berikut."
+type: software
+authors:
+  - name: "Transbulent Research Group"
+    affiliation: "Universitas Gadjah Mada / Transbulent"
+repository-code: "https://github.com/gisrad/panen-id"
+url: "https://agri.transbulent.id/ulang/"
+license: "MIT"
+version: "0.8.0"
+date-released: "2026-11-24"
+keywords:
+  - agronomy
+  - season-replay
+  - sentinel-2
+  - soilgrids
+  - webassembly
+  - indonesia

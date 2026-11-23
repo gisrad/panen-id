@@ -173,6 +173,36 @@
     a.click();
     URL.revokeObjectURL(a.href);
   }
+
+  function exportGeoJson() {
+    if (rows.length === 0) return;
+    const fc = {
+      type: 'FeatureCollection',
+      metadata: {
+        source: sourceLabel,
+        attribution: 'Agri Transbulent (agri.transbulent.id) — analisis lokal Rust WASM agro-core',
+        simulated: isSimulatedPreset,
+        sample_guard_n_lt_30: Boolean(ols?.sampleGuardTriggered),
+      },
+      features: rows.map((r) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [r.lon, r.lat] },
+        properties: {
+          plot_id: r.plot_id,
+          clay_pct: r.clay_pct,
+          yield_t_ha: r.yield_t_ha,
+          ndvi: r.ndvi,
+          is_simulated: isSimulatedPreset,
+        },
+      })),
+    };
+    const blob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'lahan-saya-analisis-wasm.geojson';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
 </script>
 
 <div style="display: grid; gap: 12px;">
@@ -184,7 +214,7 @@
       {/if}
     </div>
     <p style="margin: 0; font-size: 0.88rem; color: var(--ink-secondary);">
-      Unggah CSV atau GeoJSON petak panen Anda. Seluruh perhitungan OLS &amp; IDW berjalan di memori peramban melalui <code>agro_core.wasm</code> tanpa mengirim data mentah ke server.
+      Unggah CSV atau GeoJSON petak panen Anda. Seluruh perhitungan OLS &amp; IDW berjalan di memori peramban melalui <code>agro_core.wasm</code> tanpa mengirim data mentah ke server. Mendukung koordinat seluruh wilayah Indonesia (95&deg;&ndash;141&deg; BT, 6&deg; LU&ndash;11&deg; LS).
     </p>
 
     <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
@@ -253,9 +283,12 @@
       </div>
     </div>
 
-    <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap;">
       <span class="num" style="font-size: 11px; color: var(--ink-muted);">Pratinjau 6 baris pertama</span>
-      <button type="button" class="btn-subtle" on:click={exportCsv}>Unduh CSV + Atribusi</button>
+      <div style="display: flex; gap: 6px;">
+        <button type="button" class="btn-subtle" on:click={exportCsv}>Unduh CSV + Atribusi</button>
+        <button type="button" class="btn-subtle" on:click={exportGeoJson}>Unduh GeoJSON (QGIS)</button>
+      </div>
     </div>
 
     <div style="border: 1px solid var(--border); overflow-x: auto;">
