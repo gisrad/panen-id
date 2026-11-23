@@ -1,0 +1,15 @@
+[package]
+name = "agro-core"
+version = "0.1.0"
+edition = "2021"
+description = "Pure-Rust C-ABI WebAssembly kernel for GDD, FAO-56 ET0, IDW spatial interpolation, and OLS yield diagnostics."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

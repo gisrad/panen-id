@@ -1,0 +1,5 @@
+# Minimal runtime dependencies for scheduled production runs.
+# --dry-run and unit tests require only Python 3.11+ standard library.
+boto3>=1.35.0
+requests>=2.32.0
+earthengine-api>=1.1.0

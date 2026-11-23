@@ -6,6 +6,9 @@
   import 'uplot/dist/uPlot.min.css';
   import CropStageSvg from './CropStageSvg.svelte';
   import TrialOverlay from './TrialOverlay.svelte';
+  import SoilBlock3D from './SoilBlock3D.svelte';
+  import LahanSayaPanel from './LahanSayaPanel.svelte';
+  import { computeGddSeries, computeOlsSummary, type OlsSummary } from '../lib/agroWasm';
 
   interface SoilHorizon {
     depth_cm: string;
@@ -50,8 +53,10 @@
 
   let fieldId: 'bompon-magelang' | 'klaten-irigasi' = 'bompon-magelang';
   let bundle: FieldBundle | null = null;
-  let activeTab: 'replay' | 'analisis' | 'lahan' = 'replay';
+  let activeTab: 'replay' | 'analisis' | 'tanah3d' | 'lahan' = 'replay';
   let mapLayer: 'yield' | 'clay' | 'ndvi' = 'yield';
+  let wasmGddFinal: number | null = null;
+  let fieldOls: OlsSummary | null = null;
   let dayIdx = 74;
   let playing = false;
   let timer: number | null = null;
@@ -167,6 +172,20 @@
       updateMapPlots();
     }
     renderChart();
+    if (bundle) {
+      computeGddSeries(bundle.tmax_c, bundle.tmin_c)
+        .then((g) => {
+          if (g.length > 0) wasmGddFinal = g[g.length - 1];
+        })
+        .catch(() => {});
+      const clays = bundle.plots.features.map((f) => f.properties.clay_pct);
+      const ylds = bundle.plots.features.map((f) => f.properties.yield_t_ha);
+      computeOlsSummary(clays, ylds)
+        .then((res) => {
+          fieldOls = res;
+        })
+        .catch(() => {});
+    }
   }
 
   $: if (map && bundle) {
@@ -205,6 +224,7 @@
     document.documentElement.setAttribute('data-theme', theme);
 
     if (window.location.pathname.includes('klaten')) fieldId = 'klaten-irigasi';
+    if (window.location.pathname.includes('lahan-saya')) activeTab = 'lahan';
     await loadField(fieldId);
 
     map = new maplibregl.Map({
@@ -361,10 +381,24 @@
         <button type="button" class={activeTab === 'analisis' ? 'btn-primary' : 'btn-subtle'} on:click={() => (activeTab = 'analisis')}>
           Lensa Dangkal vs Dalam
         </button>
+        <button type="button" class={activeTab === 'tanah3d' ? 'btn-primary' : 'btn-subtle'} on:click={() => (activeTab = 'tanah3d')}>
+          Blok 3D Tanah
+        </button>
         <button type="button" class={activeTab === 'lahan' ? 'btn-primary' : 'btn-subtle'} on:click={() => (activeTab = 'lahan')}>
-          Lahan Saya (F8)
+          Lahan Saya (BYOD)
         </button>
       </div>
+
+      {#if wasmGddFinal !== null || fieldOls}
+        <div style="border: 1px solid var(--border); padding: 8px 10px; background: var(--surface); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 11px;">
+          <span class="num">WASM GDD 120H: {wasmGddFinal !== null ? wasmGddFinal.toFixed(0) : '-'}</span>
+          {#if fieldOls}
+            <span class="num" style={fieldOls.sampleGuardTriggered ? 'color: #B83B14;' : ''}>
+              OLS Liat→Hasil n={fieldOls.n} {fieldOls.sampleGuardTriggered ? '(Guard n<30)' : `R²=${fieldOls.r2.toFixed(2)}`}
+            </span>
+          {/if}
+        </div>
+      {/if}
 
       {#if bundle && selectedPlot}
         <div>
@@ -412,13 +446,15 @@
             <div class="pill-badge pill-warn">LENSA DALAM (VARIETAS × TANAH × GDD)</div>
             <p style="margin: 0; font-size: 0.94rem; font-weight: 600;">{selectedPlot.deep_note}</p>
           </div>
+        {:else if activeTab === 'tanah3d'}
+          <SoilBlock3D
+            soilProfile={bundle.soil_profile}
+            plots={bundle.plots.features}
+            {selectedPlotId}
+            fieldName={bundle.name}
+          />
         {:else}
-          <div style="border: 1px solid var(--border); padding: 16px; display: grid; gap: 10px;">
-            <div class="pill-badge">RUANG KERJA LOCAL-FIRST (FASE 5–8)</div>
-            <p style="margin: 0; color: var(--ink-secondary); font-size: 0.9rem;">
-              Mesin Rust WASM (<code>crates/agro-core</code>) dan DuckDB-WASM akan memproses unggahan CSV/GeoJSON/Shapefile langsung di perangkat Anda pada Fase 5–8 tanpa mengirim data mentah ke server.
-            </p>
-          </div>
+          <LahanSayaPanel />
         {/if}
 
         <a href={`/kekeringan/${bundle.linked_kode_bps}/`} class="btn-outline">

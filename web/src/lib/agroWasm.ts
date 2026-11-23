@@ -1,0 +1,200 @@
+export interface AgroWasmExports extends WebAssembly.Exports {
+  memory: WebAssembly.Memory;
+  alloc_f64: (len: number) => number;
+  dealloc_f64: (ptr: number, len: number) => void;
+  wasm_gdd_series: (
+    tmaxPtr: number,
+    tminPtr: number,
+    len: number,
+    tbase: number,
+    tupper: number,
+    outPtr: number,
+  ) => void;
+  wasm_fao56_et0_series: (
+    tmaxPtr: number,
+    tminPtr: number,
+    rhPtr: number,
+    u2Ptr: number,
+    rsPtr: number,
+    doyPtr: number,
+    len: number,
+    latDeg: number,
+    elevM: number,
+    outPtr: number,
+  ) => void;
+  wasm_ols_summary: (xPtr: number, yPtr: number, len: number, outPtr: number) => void;
+  wasm_idw_grid: (
+    ptsX: number,
+    ptsY: number,
+    ptsVal: number,
+    nPts: number,
+    power: number,
+    gridX: number,
+    gridY: number,
+    nGrid: number,
+    outPtr: number,
+  ) => void;
+}
+
+export interface OlsSummary {
+  slope: number;
+  intercept: number;
+  r2: number;
+  sampleGuardTriggered: boolean;
+  n: number;
+}
+
+let wasmPromise: Promise<AgroWasmExports> | null = null;
+
+export function loadAgroWasm(wasmUrl = '/ulang/wasm/agro_core.wasm'): Promise<AgroWasmExports> {
+  if (wasmPromise) return wasmPromise;
+  wasmPromise = (async () => {
+    const res = await fetch(wasmUrl);
+    if (!res.ok) {
+      throw new Error(`Gagal memuat agro_core.wasm (${res.status})`);
+    }
+    let instance: WebAssembly.Instance;
+    if (typeof WebAssembly.instantiateStreaming === 'function') {
+      try {
+        const cloned = res.clone();
+        const instantiated = await WebAssembly.instantiateStreaming(cloned, {});
+        instance = instantiated.instance;
+      } catch {
+        const bytes = await res.arrayBuffer();
+        const instantiated = await WebAssembly.instantiate(bytes, {});
+        instance = instantiated.instance;
+      }
+    } else {
+      const bytes = await res.arrayBuffer();
+      const instantiated = await WebAssembly.instantiate(bytes, {});
+      instance = instantiated.instance;
+    }
+    return instance.exports as AgroWasmExports;
+  })();
+  return wasmPromise;
+}
+
+function writeF64(wasm: AgroWasmExports, values: number[]): number {
+  const ptr = wasm.alloc_f64(values.length);
+  const view = new Float64Array(wasm.memory.buffer, ptr, values.length);
+  view.set(values);
+  return ptr;
+}
+
+function readF64(wasm: AgroWasmExports, ptr: number, len: number): number[] {
+  const view = new Float64Array(wasm.memory.buffer, ptr, len);
+  return Array.from(view);
+}
+
+export async function computeGddSeries(
+  tmax: number[],
+  tmin: number[],
+  tbase = 10,
+  tupper = 35,
+): Promise<number[]> {
+  const n = Math.min(tmax.length, tmin.length);
+  if (n === 0) return [];
+  const wasm = await loadAgroWasm();
+  const pMax = writeF64(wasm, tmax.slice(0, n));
+  const pMin = writeF64(wasm, tmin.slice(0, n));
+  const pOut = wasm.alloc_f64(n);
+  try {
+    wasm.wasm_gdd_series(pMax, pMin, n, tbase, tupper, pOut);
+    return readF64(wasm, pOut, n);
+  } finally {
+    wasm.dealloc_f64(pMax, n);
+    wasm.dealloc_f64(pMin, n);
+    wasm.dealloc_f64(pOut, n);
+  }
+}
+
+export async function computeFao56Series(
+  tmax: number[],
+  tmin: number[],
+  rh: number[],
+  u2: number[],
+  rs: number[],
+  doy: number[],
+  latDeg: number,
+  elevM: number,
+): Promise<number[]> {
+  const n = Math.min(tmax.length, tmin.length, rh.length, u2.length, rs.length, doy.length);
+  if (n === 0) return [];
+  const wasm = await loadAgroWasm();
+  const pTmax = writeF64(wasm, tmax.slice(0, n));
+  const pTmin = writeF64(wasm, tmin.slice(0, n));
+  const pRh = writeF64(wasm, rh.slice(0, n));
+  const pU2 = writeF64(wasm, u2.slice(0, n));
+  const pRs = writeF64(wasm, rs.slice(0, n));
+  const pDoy = writeF64(wasm, doy.slice(0, n));
+  const pOut = wasm.alloc_f64(n);
+  try {
+    wasm.wasm_fao56_et0_series(pTmax, pTmin, pRh, pU2, pRs, pDoy, n, latDeg, elevM, pOut);
+    return readF64(wasm, pOut, n);
+  } finally {
+    wasm.dealloc_f64(pTmax, n);
+    wasm.dealloc_f64(pTmin, n);
+    wasm.dealloc_f64(pRh, n);
+    wasm.dealloc_f64(pU2, n);
+    wasm.dealloc_f64(pRs, n);
+    wasm.dealloc_f64(pDoy, n);
+    wasm.dealloc_f64(pOut, n);
+  }
+}
+
+export async function computeOlsSummary(x: number[], y: number[]): Promise<OlsSummary> {
+  const n = Math.min(x.length, y.length);
+  if (n === 0) {
+    return { slope: 0, intercept: 0, r2: 0, sampleGuardTriggered: true, n: 0 };
+  }
+  const wasm = await loadAgroWasm();
+  const px = writeF64(wasm, x.slice(0, n));
+  const py = writeF64(wasm, y.slice(0, n));
+  const pout = wasm.alloc_f64(4);
+  try {
+    wasm.wasm_ols_summary(px, py, n, pout);
+    const [slope, intercept, r2, guard] = readF64(wasm, pout, 4);
+    return {
+      slope,
+      intercept,
+      r2,
+      sampleGuardTriggered: guard >= 0.5 || n < 30,
+      n,
+    };
+  } finally {
+    wasm.dealloc_f64(px, n);
+    wasm.dealloc_f64(py, n);
+    wasm.dealloc_f64(pout, 4);
+  }
+}
+
+export async function computeIdwGrid(
+  ptsX: number[],
+  ptsY: number[],
+  ptsVal: number[],
+  gridX: number[],
+  gridY: number[],
+  power = 2.0,
+): Promise<number[]> {
+  const nPts = Math.min(ptsX.length, ptsY.length, ptsVal.length);
+  const nGrid = Math.min(gridX.length, gridY.length);
+  if (nPts === 0 || nGrid === 0) return [];
+  const wasm = await loadAgroWasm();
+  const pX = writeF64(wasm, ptsX.slice(0, nPts));
+  const pY = writeF64(wasm, ptsY.slice(0, nPts));
+  const pV = writeF64(wasm, ptsVal.slice(0, nPts));
+  const gX = writeF64(wasm, gridX.slice(0, nGrid));
+  const gY = writeF64(wasm, gridY.slice(0, nGrid));
+  const pOut = wasm.alloc_f64(nGrid);
+  try {
+    wasm.wasm_idw_grid(pX, pY, pV, nPts, power, gX, gY, nGrid, pOut);
+    return readF64(wasm, pOut, nGrid);
+  } finally {
+    wasm.dealloc_f64(pX, nPts);
+    wasm.dealloc_f64(pY, nPts);
+    wasm.dealloc_f64(pV, nPts);
+    wasm.dealloc_f64(gX, nGrid);
+    wasm.dealloc_f64(gY, nGrid);
+    wasm.dealloc_f64(pOut, nGrid);
+  }
+}
