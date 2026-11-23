@@ -1,0 +1,32 @@
+# Node / Web
+node_modules/
+dist/
+.astro/
+.svelte-kit/
+
+# Rust / WASM
+target/
+pkg/
+crates/*/pkg/
+
+# Python / Pipeline
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets & Environment Lokal
+.env
+.env.*
+!.env.example
+.dev.vars
+wrangler.toml
+service-account*.json
+
+# Data Raster / Biner Sementara
+*.tif
+*.tiff
+*.parquet
+*.bin
+*.zip
+pipeline/out/
