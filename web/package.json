@@ -1,0 +1,21 @@
+{
+  "name": "panen-id-web",
+  "type": "module",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "astro dev --host 127.0.0.1 --port 4327",
+    "build": "astro build",
+    "preview": "astro preview --host 127.0.0.1 --port 4327"
+  },
+  "dependencies": {
+    "astro": "5.16.5",
+    "@astrojs/svelte": "^7.0.0",
+    "svelte": "^5.28.0",
+    "maplibre-gl": "^5.6.0",
+    "uplot": "^1.6.32"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

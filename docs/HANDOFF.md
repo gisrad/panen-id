@@ -1,12 +1,10 @@
 # Handoff Sesi — Panen-ID (`gisrad/panen-id`)
 
 - **Tanggal terakhir**: `2026-11-24`
-- **Fase aktif**: `P0 (SSOT Awal) — SELESAI`
+- **Fase aktif**: `P1 & Fondasi Replay 2D — SELESAI & LIVE`
 - **Langkah terakhir selesai**:
-  - Menyusun struktur dokumentasi SSOT `panen-id` (`README.md`, `.gitignore`, `.env.example`, `docs/ARCHITECTURE.md`, `docs/SCIENCE_AND_DATA.md`, `docs/ROADMAP.md`, `docs/PROGRESS.md`, `docs/HANDOFF.md`) selaras dengan payung `D:\transbulent.id\docs\agri\`.
+  - Membangun `web/` (Astro 5 + Svelte 5 + MapLibre GL v5 + `uPlot`) untuk 2 lahan Jawa Tengah (`bompon-magelang` & `klaten-irigasi`, 120 hari GDD/hujan/Tmax, 6 horizon SoilGrids, 9 petak hasil berlabel `SIMULASI`), *CropStageSvg*, *Timeline Scrubber*, tab *Lensa Dangkal vs Dalam*, jembatan ke `/kekeringan/`, dan *TrialOverlay* 5 menit.
+  - Deploy ke `panen-id-worker` dan terhubung di `https://agri.transbulent.id/ulang/bompon-magelang/mt2-2025/`.
 - **Perintah sesi berikutnya**:
-  1. Baca `docs/HANDOFF.md` & `docs/PROGRESS.md` serta `D:\transbulent.id\docs\agri\HANDOFF.md`.
-  2. Eksekusi **P1** (atau tunggu setelah F1–F2 pada repo payung `D:\transbulent.id` selesai sesuai urutan top-down).
-- **Blocker / catatan**:
-  - Tidak ada secret yang disimpan di repo; gunakan `.env.example` sebagai templat lokal.
-  - Data mentah LiDAR DAS Bompon hanya diolah lokal/internal dan tidak di-commit ke repositori GitHub.
+  1. Baca `docs/HANDOFF.md` & `docs/PROGRESS.md`.
+  2. Kerjakan **P2** (`crates/agro-core` Rust → WASM + spike evaluasi `geolibre-rust`), lalu tambah Blok 3D `three.js` *lazy-load*.

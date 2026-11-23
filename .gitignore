@@ -20,7 +20,7 @@ __pycache__/
 .env.*
 !.env.example
 .dev.vars
-wrangler.toml
+*.env.local
 service-account*.json
 
 # Data Raster / Biner Sementara

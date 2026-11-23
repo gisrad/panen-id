@@ -1,0 +1,24 @@
+---
+import '../styles/agri-swiss.css';
+import PanenWorkbench from '../components/PanenWorkbench.svelte';
+---
+
+<!doctype html>
+<html lang="id" data-theme="kertas">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Musim Ulang (Panen-ID) Jawa Tengah — Agri Transbulent</title>
+    <link rel="preload" href="/ulang/fonts/OverusedGrotesk-VF.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/ulang/fonts/IBMPlexMono-400.woff2" as="font" type="font/woff2" crossorigin />
+    <script is:inline>
+      try {
+        var t = localStorage.getItem('agri_theme');
+        if (t === 'malam' || t === 'kertas') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <PanenWorkbench client:only="svelte" />
+  </body>
+</html>

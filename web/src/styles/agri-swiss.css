@@ -1,0 +1,133 @@
+@font-face {
+  font-family: 'Overused Grotesk';
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url('/ulang/fonts/OverusedGrotesk-VF.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/ulang/fonts/IBMPlexMono-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/ulang/fonts/IBMPlexMono-500.woff2') format('woff2');
+}
+
+:root,
+[data-theme="malam"] {
+  color-scheme: dark;
+  --font-sans: 'Overused Grotesk', system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --bg: #0D0E0D;
+  --surface: #151615;
+  --ink: #FAFAFA;
+  --ink-secondary: #D4D4D8;
+  --ink-muted: #A1A1AA;
+  --border: #2A2C2A;
+  --border-strong: #3F423F;
+  --border-ink: #FAFAFA;
+  --agri-grad: linear-gradient(90deg, #E8734B 0%, #F3C64B 34%, #7AB88A 68%, #4E7A96 100%);
+  --accent-highlight: #E8734B;
+  --accent-live: #58C281;
+  --accent-cekaman: #F28B66;
+  --accent-gabah: #F3C64B;
+  --dock-bg: rgba(13, 14, 13, 0.96);
+  --wall-backdrop: rgba(13, 14, 13, 0.88);
+}
+
+[data-theme="kertas"] {
+  color-scheme: light;
+  --bg: #FFFFFF;
+  --surface: #FAFAFA;
+  --ink: #000000;
+  --ink-secondary: #52525B;
+  --ink-muted: #6B6B73;
+  --border: #E7E7E7;
+  --border-strong: #D9D9DE;
+  --border-ink: #000000;
+  --accent-live: #12703B;
+  --accent-cekaman: #B83B14;
+  --accent-gabah: #8A6304;
+  --dock-bg: rgba(255, 255, 255, 0.96);
+  --wall-backdrop: rgba(255, 255, 255, 0.85);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 1.48;
+  letter-spacing: -0.01em;
+}
+
+.num, code {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.agri-spectrum-banner {
+  background: var(--agri-grad);
+  color: #000000;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 6px 12px;
+}
+
+.topbar { background: var(--bg); border-bottom: 1px solid var(--border); position: relative; z-index: 30; }
+.topbar-inner { max-width: 1440px; margin: 0 auto; padding: 8px 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.brand-link { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; color: inherit; font-weight: 600; }
+.brand-box { width: 24px; height: 24px; border: 1.5px solid var(--border-ink); display: grid; place-items: center; font-family: var(--font-mono); font-size: 9px; font-weight: 600; }
+.hnav { display: flex; gap: 4px; margin-left: auto; font-size: 13.5px; }
+.hnav a { text-decoration: none; color: var(--ink-secondary); padding: 6px 9px; }
+.hnav a.on { color: var(--ink); box-shadow: inset 0 -2px var(--accent-highlight); }
+
+.btn-primary, .btn-outline, .btn-subtle {
+  appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 9px 13px; border-radius: 0; text-decoration: none; cursor: pointer; line-height: 1.1;
+}
+.btn-primary { background: var(--ink); color: var(--bg); border: 1px solid var(--border-ink); }
+.btn-outline { background: var(--bg); color: var(--ink); border: 1px solid var(--border-ink); }
+.btn-subtle { background: var(--bg); color: var(--ink-secondary); border: 1px solid var(--border); padding: 6px 10px; }
+
+.pill-badge {
+  display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 6px; border: 1px solid var(--border-strong); background: var(--bg); color: var(--ink-muted);
+}
+.pill-sim { border-color: var(--accent-gabah); color: var(--accent-gabah); }
+.pill-warn { border-color: var(--accent-cekaman); color: var(--accent-cekaman); }
+
+.live-badge {
+  display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid var(--border);
+  background: var(--bg); font-family: var(--font-mono); font-size: 11px; color: var(--ink-secondary); text-decoration: none;
+}
+.live-dot { width: 7px; height: 7px; background: var(--accent-live); display: inline-block; }
+.live-dot.is-warn { background: var(--accent-cekaman); }
+
+.auth-wall-backdrop {
+  position: fixed; inset: 0; z-index: 9999; background: var(--wall-backdrop); backdrop-filter: blur(10px);
+  display: grid; place-items: center; padding: 20px;
+}
+.auth-wall-card {
+  position: relative; width: min(100%, 480px); background: var(--bg); border: 1.5px solid var(--border-ink); padding: 28px;
+}
+.auth-wall-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--agri-grad); }
