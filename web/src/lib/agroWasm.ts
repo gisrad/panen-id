@@ -34,7 +34,68 @@ export interface AgroWasmExports extends WebAssembly.Exports {
     nGrid: number,
     outPtr: number,
   ) => void;
+  wasm_phenology_series: (gddPtr: number, len: number, cropCode: number, outPtr: number) => void;
 }
+
+export type CropKey = 'padi' | 'jagung' | 'kedelai' | 'bawang' | 'tebu';
+
+export interface CropProfile {
+  code: number;
+  name: string;
+  latin: string;
+  tbase: number;
+  tupper: number;
+  kcMid: number;
+  stages: [string, string, string, string, string, string];
+}
+
+export const CROP_PROFILES: Record<CropKey, CropProfile> = {
+  padi: {
+    code: 0,
+    name: 'Padi Sawah',
+    latin: 'Oryza sativa',
+    tbase: 10,
+    tupper: 35,
+    kcMid: 1.2,
+    stages: ['bibit', 'anakan', 'bunting', 'heading', 'pengisian', 'masak'],
+  },
+  jagung: {
+    code: 1,
+    name: 'Jagung Hibrida',
+    latin: 'Zea mays',
+    tbase: 10,
+    tupper: 34,
+    kcMid: 1.2,
+    stages: ['VE', 'V6', 'VT', 'R1', 'R4', 'R6'],
+  },
+  kedelai: {
+    code: 2,
+    name: 'Kedelai',
+    latin: 'Glycine max',
+    tbase: 10,
+    tupper: 33,
+    kcMid: 1.15,
+    stages: ['VE', 'V3', 'R1', 'R3', 'R5', 'R8'],
+  },
+  bawang: {
+    code: 3,
+    name: 'Bawang Merah',
+    latin: 'Allium cepa',
+    tbase: 7,
+    tupper: 30,
+    kcMid: 1.05,
+    stages: ['tunas', 'daun', 'umbi-awal', 'pembesaran', 'pematangan', 'panen'],
+  },
+  tebu: {
+    code: 4,
+    name: 'Tebu',
+    latin: 'Saccharum officinarum',
+    tbase: 12,
+    tupper: 38,
+    kcMid: 1.25,
+    stages: ['kecambah', 'anakan', 'pemanjangan', 'batang-aktif', 'kemasakan', 'tebang'],
+  },
+};
 
 export interface OlsSummary {
   slope: number;
@@ -196,5 +257,20 @@ export async function computeIdwGrid(
     wasm.dealloc_f64(gX, nGrid);
     wasm.dealloc_f64(gY, nGrid);
     wasm.dealloc_f64(pOut, nGrid);
+  }
+}
+
+export async function computePhenologySeries(gddCum: number[], cropCode: number): Promise<number[]> {
+  const n = gddCum.length;
+  if (n === 0) return [];
+  const wasm = await loadAgroWasm();
+  const pGdd = writeF64(wasm, gddCum);
+  const pOut = wasm.alloc_f64(n);
+  try {
+    wasm.wasm_phenology_series(pGdd, n, cropCode, pOut);
+    return readF64(wasm, pOut, n);
+  } finally {
+    wasm.dealloc_f64(pGdd, n);
+    wasm.dealloc_f64(pOut, n);
   }
 }

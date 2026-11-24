@@ -8,7 +8,7 @@
   import TrialOverlay from './TrialOverlay.svelte';
   import SoilBlock3D from './SoilBlock3D.svelte';
   import LahanSayaPanel from './LahanSayaPanel.svelte';
-  import { computeGddSeries, computeOlsSummary, type OlsSummary } from '../lib/agroWasm';
+  import { computeGddSeries, computeOlsSummary, computePhenologySeries, CROP_PROFILES, type CropKey, type OlsSummary } from '../lib/agroWasm';
 
   interface SoilHorizon {
     depth_cm: string;
@@ -71,6 +71,9 @@
   let mapLayer: 'yield' | 'clay' | 'ndvi' | 'stability' = 'yield';
   let isEmbed = false;
   let copyNotice = '';
+  let cropKey: CropKey = 'padi';
+  let wasmGddSeries: number[] = [];
+  let wasmStageSeries: number[] = [];
   let wasmGddFinal: number | null = null;
   let fieldOls: OlsSummary | null = null;
   let dayIdx = 74;
@@ -132,8 +135,14 @@
   let chartContainer: HTMLDivElement;
   let chart: uPlot | null = null;
 
+  $: activeCrop = CROP_PROFILES[cropKey];
   $: activeDate = bundle?.dates[dayIdx] || '2025-07-15';
-  $: activeStage = bundle?.stage_code[dayIdx] || 'heading';
+  $: activeGdd = wasmGddSeries[dayIdx] ?? bundle?.gdd_cum[dayIdx] ?? 0;
+  $: activeStageIdx = wasmStageSeries.length > dayIdx ? wasmStageSeries[dayIdx] : null;
+  $: activeStage =
+    activeStageIdx !== null
+      ? activeCrop.stages[Math.min(5, Math.max(0, Math.round(activeStageIdx)))]
+      : bundle?.stage_code[dayIdx] || 'heading';
   $: activeStressed = Boolean(
     bundle?.stress_windows.some((w) => activeDate >= w.start && activeDate <= w.end)
   );
@@ -211,7 +220,8 @@
       chart = null;
     }
     const xs = bundle.dates.map((_d, i) => i);
-    const gddScaled = bundle.gdd_cum.map((g) => Number((g / 40).toFixed(1)));
+    const activeGddArr = wasmGddSeries.length === bundle.dates.length ? wasmGddSeries : bundle.gdd_cum;
+    const gddScaled = activeGddArr.map((g) => Number((g / 40).toFixed(1)));
     chart = new uPlot(
       {
         width: Math.max(300, chartContainer.clientWidth || 440),
@@ -230,12 +240,33 @@
           {},
           { label: 'Hujan (mm)', stroke: '#4E7A96', width: 1.5 },
           { label: 'Tmax (°C)', stroke: '#E8734B', width: 1.6 },
-          { label: 'GDD/40', stroke: '#12703B', width: 1.8 },
+          { label: `GDD ${CROP_PROFILES[cropKey].name}/40`, stroke: '#12703B', width: 1.8 },
         ],
       },
       [xs, bundle.rain_mm, bundle.tmax_c, gddScaled],
       chartContainer
     );
+  }
+
+  async function recomputeCropWasm() {
+    if (!bundle) return;
+    const profile = CROP_PROFILES[cropKey];
+    try {
+      const gdds = await computeGddSeries(bundle.tmax_c, bundle.tmin_c, profile.tbase, profile.tupper);
+      const roundedGdd = gdds.map((g) => Number(g.toFixed(1)));
+      wasmGddSeries = roundedGdd;
+      if (roundedGdd.length > 0) wasmGddFinal = roundedGdd[roundedGdd.length - 1];
+      wasmStageSeries = await computePhenologySeries(roundedGdd, profile.code);
+      renderChart();
+    } catch {
+      wasmGddSeries = [];
+      wasmStageSeries = [];
+    }
+  }
+
+  function handleCropChange(next: CropKey) {
+    cropKey = next;
+    recomputeCropWasm();
   }
 
   async function loadField(id: 'bompon-magelang' | 'klaten-irigasi', nextSeason: 'mt2-2025' | 'mt2-2024' = seasonId) {
@@ -258,11 +289,7 @@
     }
     renderChart();
     if (bundle) {
-      computeGddSeries(bundle.tmax_c, bundle.tmin_c)
-        .then((g) => {
-          if (g.length > 0) wasmGddFinal = g[g.length - 1];
-        })
-        .catch(() => {});
+      recomputeCropWasm();
       const clays = bundle.plots.features.map((f) => f.properties.clay_pct);
       const ylds = bundle.plots.features.map((f) => f.properties.yield_t_ha);
       computeOlsSummary(clays, ylds)
@@ -304,6 +331,7 @@
     u.searchParams.set('tab', activeTab);
     u.searchParams.set('layer', mapLayer);
     u.searchParams.set('day', String(dayIdx));
+    u.searchParams.set('crop', cropKey);
     if (selectedPlotId) u.searchParams.set('plot', selectedPlotId);
     u.searchParams.delete('embed');
     return u.toString();
@@ -383,6 +411,10 @@
       locale = savedLocale;
     }
 
+    const qCrop = qs.get('crop');
+    if (qCrop === 'padi' || qCrop === 'jagung' || qCrop === 'kedelai' || qCrop === 'bawang' || qCrop === 'tebu') {
+      cropKey = qCrop;
+    }
     if (window.location.pathname.includes('klaten')) fieldId = 'klaten-irigasi';
     if (window.location.pathname.includes('lahan-saya')) activeTab = 'lahan';
     await loadField(fieldId);
@@ -578,7 +610,7 @@
           aria-label="Scrubber hari tanam"
         />
         <span class="num" style="font-size: 12px;">
-          H+{dayIdx + 1} · {activeDate} · GDD {bundle?.gdd_cum[dayIdx] ?? 0}
+          H+{dayIdx + 1} · {activeDate} · GDD {activeGdd} ({activeCrop.name})
         </span>
       </div>
 
@@ -614,13 +646,35 @@
       </div>
 
       {#if wasmGddFinal !== null || fieldOls}
-        <div style="border: 1px solid var(--border); padding: 8px 10px; background: var(--surface); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 11px;">
-          <span class="num">WASM GDD 120H: {wasmGddFinal !== null ? wasmGddFinal.toFixed(0) : '-'}</span>
-          {#if fieldOls}
-            <span class="num" style={fieldOls.sampleGuardTriggered ? 'color: #B83B14;' : ''}>
-              OLS Liat→Hasil n={fieldOls.n} {fieldOls.sampleGuardTriggered ? '(Guard n<30)' : `R²=${fieldOls.r2.toFixed(2)}`}
+        <div style="border: 1px solid var(--border); padding: 8px 10px; background: var(--surface); display: grid; gap: 6px; font-size: 11px;">
+          <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; align-items: center;">
+            <span class="num">WASM GDD 120H: {wasmGddFinal !== null ? wasmGddFinal.toFixed(0) : '-'}</span>
+            {#if fieldOls}
+              <span class="num" style={fieldOls.sampleGuardTriggered ? 'color: #B83B14;' : ''}>
+                OLS Liat→Hasil n={fieldOls.n} {fieldOls.sampleGuardTriggered ? '(Guard n<30)' : `R²=${fieldOls.r2.toFixed(2)}`}
+              </span>
+            {/if}
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 6px;">
+            <label style="display: flex; align-items: center; gap: 6px;">
+              <span class="num" style="font-size: 10px; color: var(--ink-muted);">KOMODITAS WASM</span>
+              <select
+                aria-label="Pilih komoditas fenologi"
+                value={cropKey}
+                on:change={(e) => handleCropChange((e.currentTarget as HTMLSelectElement).value as CropKey)}
+                style="padding: 3px 6px; border: 1px solid var(--border-ink); background: var(--bg); color: var(--ink); font-size: 11px; font-family: inherit;"
+              >
+                <option value="padi">Padi Sawah</option>
+                <option value="jagung">Jagung Hibrida</option>
+                <option value="kedelai">Kedelai</option>
+                <option value="bawang">Bawang Merah</option>
+                <option value="tebu">Tebu</option>
+              </select>
+            </label>
+            <span class="num" style="font-size: 10px; color: var(--ink-muted);">
+              Tbase {activeCrop.tbase}°C · Tupper {activeCrop.tupper}°C · Kc {activeCrop.kcMid}
             </span>
-          {/if}
+          </div>
         </div>
       {/if}
 
@@ -636,7 +690,7 @@
 
         {#if activeTab === 'replay'}
           <div style="display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 12px; border: 1px solid var(--border); padding: 12px; background: var(--surface);">
-            <CropStageSvg stage={activeStage} stressed={activeStressed} />
+            <CropStageSvg stage={activeStage} stageIndex={activeStageIdx} cropLabel={activeCrop.name} stressed={activeStressed} />
             <div style="display: grid; gap: 6px; align-content: center;">
               <div class="num" style="font-size: 10.5px; color: var(--ink-muted);">HASIL PETAK (SIMULASI)</div>
               <div class="num" style="font-size: 1.6rem; font-weight: 600;">{selectedPlot.yield_t_ha} t/ha</div>

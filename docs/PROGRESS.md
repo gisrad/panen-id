@@ -5,3 +5,4 @@
 - [x] **Multi-Season Real ERA5 (`MT2 2024` vs `2025`)**: Real Open-Meteo ERA5 daily weather for both seasons, multi-season stability classification (`stabil_tinggi`, `sensitif_iklim`, `rentan_kronis`), hover tooltips, and interactive What-If simulator.
 - [x] **Local-First BYOD & QGIS Exports**: In-browser CSV/GeoJSON analyzer with `n < 30` guard, stateful permalinks, embed mode (`?embed=1`), 4-language UI (`ID | EN | JA | ZH`), and QGIS-ready GeoJSON exports.
 - [x] **Sentinel-2 Python Pipeline (`pipeline/`)**: Verified `unittest` suite (4/4 passing) with Sentinel-2 Processing Baseline >= 04.00 `BOA_ADD_OFFSET = -1000` correction & offline `--dry-run`.
+- [x] **5-Crop WASM Phenology Engine (`crates/agro-core` & Web UI)**: Added `wasm_phenology_series` supporting `Padi Sawah`, `Jagung Hibrida`, `Kedelai`, `Bawang Merah`, and `Tebu` with live crop-specific GDD curves, permalink `?crop=`, and SVG stage visualizer.

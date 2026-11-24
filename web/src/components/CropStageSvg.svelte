@@ -1,9 +1,11 @@
 <script lang="ts">
   export let stage: string = 'bibit';
   export let stressed: boolean = false;
+  export let stageIndex: number | null = null;
+  export let cropLabel: string = 'Padi Sawah';
 
   const STAGES = ['bibit', 'anakan', 'bunting', 'heading', 'pengisian', 'masak'];
-  $: idx = Math.max(0, STAGES.indexOf(stage));
+  $: idx = stageIndex !== null ? Math.max(0, Math.min(5, Math.round(stageIndex))) : Math.max(0, STAGES.indexOf(stage));
   $: stemH = 26 + idx * 14;
   $: leafColor = stressed ? '#E8734B' : idx >= 4 ? '#F3C64B' : '#7AB88A';
 </script>
@@ -36,6 +38,6 @@
   {/if}
 
   <text x="8" y="16" font-size="10" font-family="IBM Plex Mono, monospace" fill="currentColor">
-    FASE: {stage.toUpperCase()} {stressed ? '· STRES AIR' : ''}
+    {cropLabel.toUpperCase()} · FASE: {stage.toUpperCase()} {stressed ? '· STRES AIR' : ''}
   </text>
 </svg>

@@ -154,6 +154,25 @@ pub unsafe extern "C" fn wasm_idw_grid(
     }
 }
 
+/// Compute phenology stage series (`0.0..=5.0`) from cumulative GDD values.
+///
+/// # Safety
+/// `gdd_ptr` and `out_ptr` must reference valid arrays of length `len`.
+#[no_mangle]
+pub unsafe extern "C" fn wasm_phenology_series(
+    gdd_ptr: *const f64,
+    len: usize,
+    crop_code: i32,
+    out_ptr: *mut f64,
+) {
+    if gdd_ptr.is_null() || out_ptr.is_null() || len == 0 {
+        return;
+    }
+    let gdd = slice::from_raw_parts(gdd_ptr, len);
+    let out = slice::from_raw_parts_mut(out_ptr, len);
+    gdd::phenology_series(gdd, crop_code, out);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -193,6 +212,22 @@ mod tests {
             wasm_ols_summary(px.as_ptr(), pv.as_ptr(), 2, ols_out.as_mut_ptr());
             assert!((ols_out[0] - 0.4).abs() < 1e-9);
             assert_eq!(ols_out[3], 1.0);
+        }
+    }
+
+    #[test]
+    fn test_c_abi_phenology_series() {
+        unsafe {
+            let gdd = [100.0, 450.0, 920.0, 1600.0];
+            let mut out = [0.0; 4];
+            wasm_phenology_series(gdd.as_ptr(), 4, 0, out.as_mut_ptr());
+            assert_eq!(out, [0.0, 1.0, 3.0, 5.0]);
+            wasm_phenology_series(gdd.as_ptr(), 4, 2, out.as_mut_ptr());
+            assert_eq!(out, [1.0, 2.0, 4.0, 5.0]);
+            wasm_phenology_series(gdd.as_ptr(), 4, 3, out.as_mut_ptr());
+            assert_eq!(out, [0.0, 2.0, 4.0, 5.0]);
+            wasm_phenology_series(gdd.as_ptr(), 4, 4, out.as_mut_ptr());
+            assert_eq!(out, [0.0, 1.0, 2.0, 3.0]);
         }
     }
 }

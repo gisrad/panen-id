@@ -16,38 +16,30 @@ pub fn cumulative_gdd(tmax: &[f64], tmin: &[f64], tbase: f64, tupper: f64, out: 
     }
 }
 
-/// Returns integer phenology stage index for rice (crop_code=0) or maize (crop_code=1).
+/// Returns integer phenology stage index (0..=5) for Indonesian crops:
+/// `0` = Padi (Rice), `1` = Jagung (Maize), `2` = Kedelai (Soybean),
+/// `3` = Bawang Merah / Hortikultura (Shallot), `4` = Tebu (Sugarcane).
 pub fn phenology_stage(gdd_cum: f64, crop_code: i32) -> i32 {
-    if crop_code == 1 {
-        // Maize (Jagung)
-        if gdd_cum < 80.0 {
-            0
-        } else if gdd_cum < 350.0 {
-            1
-        } else if gdd_cum < 650.0 {
-            2
-        } else if gdd_cum < 820.0 {
-            3
-        } else if gdd_cum < 1250.0 {
-            4
-        } else {
-            5
+    let cuts = match crop_code {
+        1 => [80.0, 350.0, 650.0, 820.0, 1250.0],
+        2 => [90.0, 340.0, 620.0, 860.0, 1120.0],
+        3 => [110.0, 300.0, 540.0, 760.0, 960.0],
+        4 => [220.0, 780.0, 1450.0, 2100.0, 2750.0],
+        _ => [120.0, 500.0, 900.0, 1200.0, 1550.0],
+    };
+    for (idx, threshold) in cuts.iter().enumerate() {
+        if gdd_cum < *threshold {
+            return idx as i32;
         }
-    } else {
-        // Rice (Padi) default
-        if gdd_cum < 120.0 {
-            0
-        } else if gdd_cum < 500.0 {
-            1
-        } else if gdd_cum < 900.0 {
-            2
-        } else if gdd_cum < 1200.0 {
-            3
-        } else if gdd_cum < 1550.0 {
-            4
-        } else {
-            5
-        }
+    }
+    5
+}
+
+/// Fills `out` with phenology stage index (`0.0..=5.0`) for each cumulative GDD value.
+pub fn phenology_series(gdd_cum: &[f64], crop_code: i32, out: &mut [f64]) {
+    let n = gdd_cum.len().min(out.len());
+    for i in 0..n {
+        out[i] = phenology_stage(gdd_cum[i], crop_code) as f64;
     }
 }
 
@@ -77,5 +69,26 @@ mod tests {
         assert_eq!(phenology_stage(50.0, 0), 0);
         assert_eq!(phenology_stage(950.0, 0), 3);
         assert_eq!(phenology_stage(700.0, 1), 3);
+    }
+
+    #[test]
+    fn test_multi_commodity_phenology_stages() {
+        // Kedelai (code 2)
+        assert_eq!(phenology_stage(60.0, 2), 0);
+        assert_eq!(phenology_stage(400.0, 2), 2);
+        assert_eq!(phenology_stage(1200.0, 2), 5);
+        // Bawang Merah (code 3)
+        assert_eq!(phenology_stage(100.0, 3), 0);
+        assert_eq!(phenology_stage(600.0, 3), 3);
+        assert_eq!(phenology_stage(1000.0, 3), 5);
+        // Tebu (code 4)
+        assert_eq!(phenology_stage(200.0, 4), 0);
+        assert_eq!(phenology_stage(1600.0, 4), 3);
+        assert_eq!(phenology_stage(2800.0, 4), 5);
+
+        let gdds = [50.0, 350.0, 980.0];
+        let mut stages = [0.0; 3];
+        phenology_series(&gdds, 3, &mut stages);
+        assert_eq!(stages, [0.0, 2.0, 5.0]);
     }
 }
