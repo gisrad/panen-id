@@ -247,7 +247,7 @@
     const gddScaled = activeGddArr.map((g) => Number((g / 40).toFixed(1)));
     chart = new uPlot(
       {
-        width: Math.max(300, chartContainer.clientWidth || 440),
+        width: Math.max(240, (chartContainer.clientWidth || 300) - 2),
         height: 155,
         cursor: { drag: { x: false, y: false } },
         scales: { x: { time: false }, y: { range: [0, 50] } },
@@ -541,9 +541,21 @@
         hoverPlot = null;
       });
     });
+    window.addEventListener('resize', handleWinResize);
   });
 
+  let resizeTimer: number | null = null;
+  function handleWinResize() {
+    if (resizeTimer) window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(() => {
+      map?.resize();
+      renderChart();
+    }, 120);
+  }
+
   onDestroy(() => {
+    if (typeof window !== 'undefined') window.removeEventListener('resize', handleWinResize);
+    if (resizeTimer) window.clearTimeout(resizeTimer);
     if (timer) window.clearInterval(timer);
     if (chart) chart.destroy();
     if (map) map.remove();
@@ -572,37 +584,39 @@
           <a href="/lobby/">{tUi.lobby}</a>
         </nav>
 
-        <div style="display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap;">
-          <button
-            type="button"
-            class={fieldId === 'bompon-magelang' ? 'btn-primary' : 'btn-subtle'}
-            on:click={() => loadField('bompon-magelang')}
-          >
-            DAS Bompon
-          </button>
-          <button
-            type="button"
-            class={fieldId === 'klaten-irigasi' ? 'btn-primary' : 'btn-subtle'}
-            on:click={() => loadField('klaten-irigasi')}
-          >
-            Irigasi Klaten
-          </button>
-          {#if fieldId === 'bompon-magelang'}
+        <div class="panen-controls-row">
+          <div class="panen-field-strip">
             <button
               type="button"
-              class={seasonId === 'mt2-2025' ? 'btn-primary' : 'btn-subtle'}
-              on:click={() => loadField('bompon-magelang', 'mt2-2025')}
+              class={fieldId === 'bompon-magelang' ? 'btn-primary' : 'btn-subtle'}
+              on:click={() => loadField('bompon-magelang')}
             >
-              MT2 2025
+              DAS Bompon
             </button>
             <button
               type="button"
-              class={seasonId === 'mt2-2024' ? 'btn-primary' : 'btn-subtle'}
-              on:click={() => loadField('bompon-magelang', 'mt2-2024')}
+              class={fieldId === 'klaten-irigasi' ? 'btn-primary' : 'btn-subtle'}
+              on:click={() => loadField('klaten-irigasi')}
             >
-              MT2 2024 (Kering)
+              Irigasi Klaten
             </button>
-          {/if}
+            {#if fieldId === 'bompon-magelang'}
+              <button
+                type="button"
+                class={seasonId === 'mt2-2025' ? 'btn-primary' : 'btn-subtle'}
+                on:click={() => loadField('bompon-magelang', 'mt2-2025')}
+              >
+                MT2 2025
+              </button>
+              <button
+                type="button"
+                class={seasonId === 'mt2-2024' ? 'btn-primary' : 'btn-subtle'}
+                on:click={() => loadField('bompon-magelang', 'mt2-2024')}
+              >
+                MT2 2024
+              </button>
+            {/if}
+          </div>
           <AccountMenu
             {authenticated}
             {userEmail}
@@ -637,14 +651,14 @@
     </header>
   {/if}
 
-  <main style="flex: 1; display: grid; grid-template-columns: 1.25fr 0.95fr; min-height: 620px;">
+  <main class="panen-main">
     <!-- Kolom Kiri: Peta + Timeline Scrubber + uPlot -->
-    <section style="display: grid; grid-template-rows: 1fr auto auto; border-right: 1px solid var(--border);">
-      <div style="position: relative; min-height: 360px;">
+    <section class="panen-left">
+      <div class="panen-map-stage">
         <div bind:this={mapContainer} style="position: absolute; inset: 0;"></div>
 
-        <div style="position: absolute; top: 12px; left: 12px; z-index: 10; background: var(--dock-bg); border: 1.5px solid var(--border-ink); padding: 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-          <span class="pill-badge pill-sim">SIMULASI</span>
+        <div class="panen-layer-bar">
+          <span class="pill-badge pill-sim hide-mobile">SIMULASI</span>
           {#each (['yield', 'clay', 'ndvi', 'stability', 'zones'] as const) as k}
             <button
               type="button"
@@ -657,7 +671,7 @@
           {/each}
         </div>
         {#if hoverPlot}
-          <div style="position: absolute; top: 12px; right: 12px; z-index: 10; background: var(--dock-bg); border: 1.5px solid var(--border-ink); padding: 8px 10px; max-width: 240px; pointer-events: none;">
+          <div style="position: absolute; bottom: 12px; right: 12px; z-index: 10; background: var(--dock-bg); border: 1.5px solid var(--border-ink); padding: 8px 10px; max-width: 240px; pointer-events: none;">
             <div class="num" style="font-size: 10.5px; font-weight: 600;">{hoverPlot.plot_id} · {hoverPlot.zone}</div>
             <div class="num" style="font-size: 10px; color: var(--ink-muted); margin-top: 2px;">
               Hasil {hoverPlot.yield_t_ha} t/ha · Liat {hoverPlot.clay_pct}%{hoverPlot.landslide_class ? ` · ${hoverPlot.landslide_class}` : ''}
@@ -667,7 +681,7 @@
       </div>
 
       <!-- Scrubber 120 Hari -->
-      <div style="border-top: 1px solid var(--border); padding: 12px 16px; background: var(--bg); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <div style="border-top: 1px solid var(--border); padding: 10px 14px; background: var(--bg); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <button type="button" class="btn-primary" style="padding: 7px 12px;" on:click={togglePlay}>
           {playing ? tUi.pause : tUi.play}
         </button>
@@ -676,16 +690,16 @@
           min="0"
           max={Math.max(0, (bundle?.dates.length || 120) - 1)}
           bind:value={dayIdx}
-          style="flex: 1; accent-color: #000000;"
+          style="flex: 1; min-width: 120px; accent-color: #000000;"
           aria-label="Scrubber hari tanam"
         />
-        <span class="num" style="font-size: 12px;">
+        <span class="num" style="font-size: 11.5px;">
           H+{dayIdx + 1} · {activeDate} · GDD {activeGdd} ({activeCrop.name})
         </span>
       </div>
 
       <!-- Grafik uPlot -->
-      <div style="border-top: 1px solid var(--border); padding: 10px 16px; background: var(--surface);">
+      <div style="border-top: 1px solid var(--border); padding: 10px 14px; background: var(--surface);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
           <span class="num" style="font-size: 10px; color: var(--ink-muted);">
             HUJAN HARIAN (BIRU), TMAX °C (TERAKOTA), &amp; AKUMULASI GDD/40 (HIJAU)
@@ -699,8 +713,8 @@
     </section>
 
     <!-- Kolom Kanan: Tanaman SVG + 6 Horizon SoilGrids + Lensa Dangkal vs Dalam -->
-    <aside style="padding: 18px; display: grid; gap: 16px; align-content: start; overflow-y: auto; max-height: calc(100vh - 90px);">
-      <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+    <aside class="panen-aside">
+      <div class="panen-tabs">
         <button type="button" class={activeTab === 'replay' ? 'btn-primary' : 'btn-subtle'} on:click={() => (activeTab = 'replay')}>
           {tUi.tabReplay}
         </button>

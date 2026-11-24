@@ -73,6 +73,11 @@ html, body {
   font-size: 15px;
   line-height: 1.48;
   letter-spacing: -0.01em;
+  overflow-x: clip;
+}
+button, a, select, input {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .num, code {
@@ -131,3 +136,148 @@ html, body {
   position: relative; width: min(100%, 480px); background: var(--bg); border: 1.5px solid var(--border-ink); padding: 28px;
 }
 .auth-wall-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--agri-grad); }
+
+/* Responsive Mobile + Workbench Layout */
+.panen-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1.25fr 0.95fr;
+  min-height: calc(100dvh - 108px);
+}
+.panen-left {
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.panen-map-stage {
+  position: relative;
+  min-height: 360px;
+}
+.panen-layer-bar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 52px;
+  z-index: 10;
+  background: var(--dock-bg);
+  border: 1.5px solid var(--border-ink);
+  padding: 8px 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.panen-aside {
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  overflow-y: auto;
+  max-height: calc(100dvh - 96px);
+  min-width: 0;
+}
+.panen-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.panen-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+.panen-field-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 960px) {
+  .agri-spectrum-banner {
+    padding: 4px 10px;
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .topbar-inner {
+    padding: 6px 12px;
+    gap: 6px 8px;
+  }
+  .hnav {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    padding-top: 2px;
+    border-top: 1px solid var(--border);
+  }
+  .hnav::-webkit-scrollbar { display: none; }
+  .hnav a {
+    flex-shrink: 0;
+    padding: 5px 8px;
+    font-size: 12.5px;
+  }
+  .panen-controls-row {
+    gap: 5px;
+  }
+  .panen-field-strip {
+    order: 4;
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .panen-field-strip::-webkit-scrollbar { display: none; }
+  .panen-main {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+  .panen-left {
+    border-right: 0;
+    border-bottom: 1.5px solid var(--border-ink);
+  }
+  .panen-map-stage {
+    height: 46dvh;
+    min-height: 290px;
+    width: 100%;
+  }
+  .panen-layer-bar {
+    top: 8px;
+    left: 8px;
+    right: 48px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    padding: 6px 8px;
+  }
+  .panen-layer-bar::-webkit-scrollbar { display: none; }
+  .panen-layer-bar button { flex-shrink: 0; }
+  .panen-aside {
+    padding: 14px;
+    max-height: none;
+    overflow-y: visible;
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .hide-mobile { display: none !important; }
+  .panen-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .panen-tabs::-webkit-scrollbar { display: none; }
+  .panen-tabs button { flex-shrink: 0; }
+}
