@@ -340,11 +340,33 @@
   async function copyPermalink() {
     const urlStr = buildPermalink();
     window.history.replaceState(null, '', urlStr);
+    let shareUrl = urlStr;
+    let isShort = false;
     try {
-      await navigator.clipboard.writeText(urlStr);
-      copyNotice = 'Permalink tersalin ke papan klip.';
+      const u = new URL(urlStr);
+      const res = await fetch('/api/v1/share', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          module: 'ulang',
+          target_path: `${u.pathname}${u.search}`,
+        }),
+      });
+      if (res.ok) {
+        const j = await res.json();
+        if (j?.short_url) {
+          shareUrl = String(j.short_url);
+          isShort = true;
+        }
+      }
     } catch {
-      copyNotice = urlStr;
+      // Fallback safely to full permalink
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      copyNotice = isShort ? `Tautan singkat tersalin: ${shareUrl}` : 'Permalink tersalin ke papan klip.';
+    } catch {
+      copyNotice = shareUrl;
     }
   }
 
