@@ -1,5 +1,11 @@
 # Changelog — Panen-ID (`gisrad/panen-id`)
 
+## [2.0.0] - 2026-11-24
+
+### Added
+- **Pure-Rust WebAssembly ML (`crates/agro-core/src/ml.rs`)**: Added quantile-seeded standardized K-Means 3-zone clustering (`wasm_kmeans_zones`) with Silhouette separation score and 4×4 Gaussian elimination Ridge regression explainability (`wasm_explain_yield`).
+- **Explainable AI & Management Zones UI (`PanenWorkbench.svelte`)**: Added `Zona AI (K-Means)` map layer (`?layer=zones`) and a real-time Explainable AI panel with multivariate $R^2$, RMSE, global feature importance bars (`Clay %`, `NDVI`, `Permeability`), and per-plot Shapley-style yield attribution.
+
 ## [1.4.0] - 2026-11-24
 
 ### Added

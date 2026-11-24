@@ -1,5 +1,6 @@
 pub mod fao56;
 pub mod gdd;
+pub mod ml;
 pub mod spatial;
 
 use std::slice;
@@ -173,6 +174,54 @@ pub unsafe extern "C" fn wasm_phenology_series(
     gdd::phenology_series(gdd, crop_code, out);
 }
 
+/// Partition fields into 3 standardized K-Means management zones (0=low, 1=mid, 2=high).
+/// Returns mean Silhouette separation score.
+///
+/// # Safety
+/// Input pointers and `out_labels_ptr` must reference arrays of length `len`.
+#[no_mangle]
+pub unsafe extern "C" fn wasm_kmeans_zones(
+    yields_ptr: *const f64,
+    clays_ptr: *const f64,
+    ndvis_ptr: *const f64,
+    len: usize,
+    out_labels_ptr: *mut f64,
+) -> f64 {
+    if yields_ptr.is_null() || clays_ptr.is_null() || ndvis_ptr.is_null() || out_labels_ptr.is_null() || len == 0 {
+        return 0.0;
+    }
+    let yields = slice::from_raw_parts(yields_ptr, len);
+    let clays = slice::from_raw_parts(clays_ptr, len);
+    let ndvis = slice::from_raw_parts(ndvis_ptr, len);
+    let out = slice::from_raw_parts_mut(out_labels_ptr, len);
+    ml::kmeans_3_zones(yields, clays, ndvis, out)
+}
+
+/// Multivariate standardized Ridge regression `y = b0 + b1*z_clay + b2*z_ndvi + b3*z_perm`.
+/// Writes `[b1, b2, b3, imp_clay_pct, imp_ndvi_pct, imp_perm_pct, r2, rmse, guard, mean_y]` into `out_10_ptr`.
+///
+/// # Safety
+/// Input pointers must have length `len` and `out_10_ptr` must hold at least 10 `f64` values.
+#[no_mangle]
+pub unsafe extern "C" fn wasm_explain_yield(
+    clays_ptr: *const f64,
+    ndvis_ptr: *const f64,
+    perms_ptr: *const f64,
+    yields_ptr: *const f64,
+    len: usize,
+    out_10_ptr: *mut f64,
+) {
+    if clays_ptr.is_null() || ndvis_ptr.is_null() || perms_ptr.is_null() || yields_ptr.is_null() || out_10_ptr.is_null() {
+        return;
+    }
+    let clays = slice::from_raw_parts(clays_ptr, len);
+    let ndvis = slice::from_raw_parts(ndvis_ptr, len);
+    let perms = slice::from_raw_parts(perms_ptr, len);
+    let yields = slice::from_raw_parts(yields_ptr, len);
+    let out = slice::from_raw_parts_mut(out_10_ptr, 10);
+    out.copy_from_slice(&ml::explain_yield_ridge(clays, ndvis, perms, yields));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,6 +277,26 @@ mod tests {
             assert_eq!(out, [0.0, 2.0, 4.0, 5.0]);
             wasm_phenology_series(gdd.as_ptr(), 4, 4, out.as_mut_ptr());
             assert_eq!(out, [0.0, 1.0, 2.0, 3.0]);
+        }
+    }
+
+    #[test]
+    fn test_c_abi_ml_kmeans_and_explain() {
+        unsafe {
+            let yields = [3.0, 3.2, 5.1, 5.3, 7.2, 7.4];
+            let clays = [62.0, 60.0, 44.0, 42.0, 28.0, 26.0];
+            let ndvis = [0.50, 0.52, 0.66, 0.68, 0.80, 0.82];
+            let perms = [4.0, 4.5, 9.0, 9.5, 16.0, 17.0];
+            let mut labels = [0.0; 6];
+            let sil = wasm_kmeans_zones(yields.as_ptr(), clays.as_ptr(), ndvis.as_ptr(), 6, labels.as_mut_ptr());
+            assert!(sil > 0.3);
+            assert_eq!(labels[0], 0.0);
+            assert_eq!(labels[5], 2.0);
+
+            let mut exp = [0.0; 10];
+            wasm_explain_yield(clays.as_ptr(), ndvis.as_ptr(), perms.as_ptr(), yields.as_ptr(), 6, exp.as_mut_ptr());
+            assert!(exp[6] > 0.95);
+            assert!((exp[3] + exp[4] + exp[5] - 100.0).abs() < 1e-6);
         }
     }
 }

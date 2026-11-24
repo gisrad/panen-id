@@ -35,6 +35,31 @@ export interface AgroWasmExports extends WebAssembly.Exports {
     outPtr: number,
   ) => void;
   wasm_phenology_series: (gddPtr: number, len: number, cropCode: number, outPtr: number) => void;
+  wasm_kmeans_zones: (
+    yieldsPtr: number,
+    claysPtr: number,
+    ndvisPtr: number,
+    len: number,
+    outLabelsPtr: number,
+  ) => number;
+  wasm_explain_yield: (
+    claysPtr: number,
+    ndvisPtr: number,
+    permsPtr: number,
+    yieldsPtr: number,
+    len: number,
+    out10Ptr: number,
+  ) => void;
+}
+
+export interface YieldExplainResult {
+  betas: { clay: number; ndvi: number; perm: number };
+  importancePct: { clay: number; ndvi: number; perm: number };
+  r2: number;
+  rmse: number;
+  sampleGuardTriggered: boolean;
+  meanYield: number;
+  n: number;
 }
 
 export type CropKey = 'padi' | 'jagung' | 'kedelai' | 'bawang' | 'tebu';
@@ -272,5 +297,73 @@ export async function computePhenologySeries(gddCum: number[], cropCode: number)
   } finally {
     wasm.dealloc_f64(pGdd, n);
     wasm.dealloc_f64(pOut, n);
+  }
+}
+
+export async function computeKmeansZones(
+  yields: number[],
+  clays: number[],
+  ndvis: number[],
+): Promise<{ labels: number[]; separation: number }> {
+  const n = Math.min(yields.length, clays.length, ndvis.length);
+  if (n === 0) return { labels: [], separation: 0 };
+  const wasm = await loadAgroWasm();
+  const pY = writeF64(wasm, yields.slice(0, n));
+  const pC = writeF64(wasm, clays.slice(0, n));
+  const pN = writeF64(wasm, ndvis.slice(0, n));
+  const pOut = wasm.alloc_f64(n);
+  try {
+    const separation = wasm.wasm_kmeans_zones(pY, pC, pN, n, pOut);
+    return { labels: readF64(wasm, pOut, n).map((v) => Math.round(v)), separation };
+  } finally {
+    wasm.dealloc_f64(pY, n);
+    wasm.dealloc_f64(pC, n);
+    wasm.dealloc_f64(pN, n);
+    wasm.dealloc_f64(pOut, n);
+  }
+}
+
+export async function computeYieldExplain(
+  clays: number[],
+  ndvis: number[],
+  perms: number[],
+  yields: number[],
+): Promise<YieldExplainResult> {
+  const n = Math.min(clays.length, ndvis.length, perms.length, yields.length);
+  if (n === 0) {
+    return {
+      betas: { clay: 0, ndvi: 0, perm: 0 },
+      importancePct: { clay: 33.4, ndvi: 33.3, perm: 33.3 },
+      r2: 0,
+      rmse: 0,
+      sampleGuardTriggered: true,
+      meanYield: 0,
+      n: 0,
+    };
+  }
+  const wasm = await loadAgroWasm();
+  const pC = writeF64(wasm, clays.slice(0, n));
+  const pN = writeF64(wasm, ndvis.slice(0, n));
+  const pP = writeF64(wasm, perms.slice(0, n));
+  const pY = writeF64(wasm, yields.slice(0, n));
+  const pOut = wasm.alloc_f64(10);
+  try {
+    wasm.wasm_explain_yield(pC, pN, pP, pY, n, pOut);
+    const [b1, b2, b3, ic, iN, ip, r2, rmse, guard, meanYield] = readF64(wasm, pOut, 10);
+    return {
+      betas: { clay: b1, ndvi: b2, perm: b3 },
+      importancePct: { clay: ic, ndvi: iN, perm: ip },
+      r2,
+      rmse,
+      sampleGuardTriggered: guard >= 0.5 || n < 30,
+      meanYield,
+      n,
+    };
+  } finally {
+    wasm.dealloc_f64(pC, n);
+    wasm.dealloc_f64(pN, n);
+    wasm.dealloc_f64(pP, n);
+    wasm.dealloc_f64(pY, n);
+    wasm.dealloc_f64(pOut, 10);
   }
 }
