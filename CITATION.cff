@@ -8,7 +8,7 @@ authors:
 repository-code: "https://github.com/gisrad/panen-id"
 url: "https://agri.transbulent.id/ulang/"
 license: "MIT"
-version: "0.8.0"
+version: "1.4.0"
 date-released: "2026-11-24"
 keywords:
   - agronomy

@@ -1,5 +1,12 @@
 # Changelog — Panen-ID (`gisrad/panen-id`)
 
+## [1.4.0] - 2026-11-24
+
+### Added
+- **5-Commodity Rust WASM Phenology (`crates/agro-core`)**: Added `wasm_phenology_series` supporting Rice (*Padi*), Maize (*Jagung*), Soybean (*Kedelai*), Shallot (*Bawang Merah*), and Sugarcane (*Tebu*) with crop-specific `Tbase`/`Tupper`, dynamic `uPlot` curves, SVG phenology stage labels, and `?crop=` permalink state.
+- **Indonesia-Wide Open-Meteo ERA5 + WASM Diagnostics (`LahanSayaPanel.svelte`)**: Added live archipelago ERA5 daily weather ingestion (`/api/v1/weather`) paired with browser-side WASM `GDD` and FAO-56 `ET0` water-balance calculations, plus D1 `/s/<slug>` shortlink sharing.
+- **Real DAS Bompon SHP & Multi-Season Stability**: Added 68 geomorphological landform polygons and `MT2 2024` vs `MT2 2025` YoY yield comparison (`Stabilitas 24–25`) with interactive What-If simulator.
+
 ## [0.8.0] - 2026-11-24
 
 ### Ditambahkan
