@@ -13,3 +13,9 @@
 
 - `PanenWorkbench.oy9pVYQq.js = 329.78 kB` gzip (di bawah anggaran <= 350 kB); `three.module.BR4CzLBj.js = 192.60 kB` gzip terpisah (*lazy*).
 - `panen-id-worker` Version `c47db3a1-6b38-4eb7-801f-dea140ceff33` aktif di `https://agri.transbulent.id/ulang/`, `/ulang/?embed=1` (`frame-ancestors 'self' https://*.transbulent.id`), dan `/ulang/wasm/agro_core.wasm`.
+
+## Update v0.9.0 — SHP Bentuk Lahan Riil DAS Bompon & i18n 4 Bahasa (2026-11-24)
+
+- Skrip `scripts/build_bompon_real_shp.py` mengekstrak `68` unit poligon bentuk lahan riil (`area >= 5.000 m²`, mencakup 97,6% dari `294,71 ha` DAS Bompon) dari `D:\GIS_DATA\bompon\raw\legacy\landform_bompon.shp` (`EPSG:32749` -> `EPSG:4326`), mempertahankan pengukuran riil `Clay`, `Silt`, `Sand`, `LPermea`, dan `Longsor` (`bompon-mt2-2025.json` = `128.0 KB`).
+- `PanenWorkbench.svelte` kini memiliki pemilih bahasa sinkron (`ID | EN | JA | ZH` via `localStorage.agri_locale`), zoom adaptif `14.1` untuk DAS Bompon, serta tampilan parameter tanah riil pada kartu petak terpilih (`PanenWorkbench.BUoKUHHt.js` = `331.82 kB` gzip; lazy `three.module.BR4CzLBj.js` = `192.60 kB` gzip).
+- Deploy `panen-id-worker` Version `18e9fc7a-dc69-4d17-baed-5b8451b60772` & unggahan R2 `v1/season/bompon-real-mt2-2025.json` terverifikasi live HTTP `200`.

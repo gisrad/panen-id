@@ -22,8 +22,14 @@
   interface PlotProperties {
     plot_id: string;
     zone: string;
+    morphology?: string;
+    area_ha?: number;
     yield_t_ha: number;
     clay_pct: number;
+    silt_pct?: number;
+    sand_pct?: number;
+    permeability?: number;
+    landslide_class?: string;
     ndvi_peak: number;
     drainage: string;
     shallow_note: string;
@@ -62,8 +68,48 @@
   let dayIdx = 74;
   let playing = false;
   let timer: number | null = null;
-  let selectedPlotId = 'P1-ATAS';
+  let selectedPlotId = 'BP-01';
   let theme: 'malam' | 'kertas' = 'kertas';
+  type Locale = 'id' | 'en' | 'ja' | 'zh';
+  let locale: Locale = 'id';
+
+  const UI_I18N: Record<Locale, Record<string, string>> = {
+    id: {
+      home: 'Beranda', replay: 'Musim Ulang', drought: 'Kekeringan', methods: 'Metode', lobby: 'Lobby',
+      layerYield: 'Hasil (batlow)', layerClay: '% Liat (lajolla)', layerNdvi: 'NDVI (bamako)',
+      play: 'Putar Musim', pause: 'Jeda', light: 'Putih', dark: 'Malam',
+      tabReplay: 'Replay & Tanah', tabLens: 'Lensa Dangkal vs Dalam', tab3d: 'Blok 3D Tanah', tabByod: 'Lahan Saya (BYOD)',
+      copyLink: 'Salin Permalink', copyEmbed: 'Salin Embed', exportGeo: 'Ekspor GeoJSON', bridge: 'Lihat Konteks Kekeringan',
+    },
+    en: {
+      home: 'Home', replay: 'Season Replay', drought: 'Drought', methods: 'Methods', lobby: 'Lobby',
+      layerYield: 'Yield (batlow)', layerClay: 'Clay % (lajolla)', layerNdvi: 'NDVI (bamako)',
+      play: 'Play Season', pause: 'Pause', light: 'Light', dark: 'Dark',
+      tabReplay: 'Replay & Soil', tabLens: 'Shallow vs Deep', tab3d: '3D Soil Block', tabByod: 'My Field (BYOD)',
+      copyLink: 'Copy Permalink', copyEmbed: 'Copy Embed', exportGeo: 'Export GeoJSON', bridge: 'Open Drought Context',
+    },
+    ja: {
+      home: 'ホーム', replay: 'リプレイ', drought: '干ばつ', methods: '手法', lobby: 'ロビー',
+      layerYield: '収量 (batlow)', layerClay: '粘土率 (lajolla)', layerNdvi: 'NDVI (bamako)',
+      play: '再生', pause: '一時停止', light: 'ライト', dark: 'ダーク',
+      tabReplay: 'リプレイと土壌', tabLens: '浅層 vs 深層', tab3d: '3D土壌ブロック', tabByod: 'マイ圃場 (BYOD)',
+      copyLink: 'URLをコピー', copyEmbed: '埋込コピー', exportGeo: 'GeoJSON出力', bridge: '干ばつ状況を見る',
+    },
+    zh: {
+      home: '首页', replay: '生长季回放', drought: '干旱', methods: '方法', lobby: '大厅',
+      layerYield: '产量 (batlow)', layerClay: '黏粒% (lajolla)', layerNdvi: 'NDVI (bamako)',
+      play: '播放生长季', pause: '暂停', light: '浅色', dark: '深色',
+      tabReplay: '回放与土壤', tabLens: '浅层 vs 深层', tab3d: '三维土壤块', tabByod: '我的农田 (BYOD)',
+      copyLink: '复制链接', copyEmbed: '复制嵌入', exportGeo: '导出 GeoJSON', bridge: '查看干旱背景',
+    },
+  };
+  $: tUi = UI_I18N[locale];
+
+  function setLocale(next: Locale) {
+    locale = next;
+    document.documentElement.lang = next;
+    window.localStorage.setItem('agri_locale', next);
+  }
 
   let remainingSec = 300;
   let authenticated = false;
@@ -170,7 +216,7 @@
     dayIdx = Math.min(74, (bundle?.dates.length || 90) - 1);
     await tick();
     if (map && bundle) {
-      map.flyTo({ center: bundle.center, zoom: 15.2, duration: 700 });
+      map.flyTo({ center: bundle.center, zoom: id === 'bompon-magelang' ? 14.1 : 15.2, duration: 700 });
       updateMapPlots();
     }
     renderChart();
@@ -295,6 +341,11 @@
     }
     document.documentElement.setAttribute('data-theme', theme);
 
+    const savedLocale = window.localStorage.getItem('agri_locale');
+    if (savedLocale === 'id' || savedLocale === 'en' || savedLocale === 'ja' || savedLocale === 'zh') {
+      locale = savedLocale;
+    }
+
     if (window.location.pathname.includes('klaten')) fieldId = 'klaten-irigasi';
     if (window.location.pathname.includes('lahan-saya')) activeTab = 'lahan';
     await loadField(fieldId);
@@ -311,8 +362,8 @@
     map = new maplibregl.Map({
       container: mapContainer,
       style: 'https://tiles.openfreemap.org/styles/positron',
-      center: bundle?.center || [110.078, -7.548],
-      zoom: 15.2,
+      center: bundle?.center || [110.0665, -7.5549],
+      zoom: fieldId === 'bompon-magelang' ? 14.1 : 15.2,
       attributionControl: false,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
@@ -368,11 +419,11 @@
         </a>
 
         <nav class="hnav" aria-label="Navigasi">
-          <a href="/">Beranda</a>
-          <a href="/ulang/bompon-magelang/mt2-2025/" class="on">Musim Ulang</a>
-          <a href="/kekeringan/">Kekeringan</a>
-          <a href="/metode/">Metode</a>
-          <a href="/lobby/">Lobby</a>
+          <a href="/">{tUi.home}</a>
+          <a href="/ulang/bompon-magelang/mt2-2025/" class="on">{tUi.replay}</a>
+          <a href="/kekeringan/">{tUi.drought}</a>
+          <a href="/metode/">{tUi.methods}</a>
+          <a href="/lobby/">{tUi.lobby}</a>
         </nav>
 
         <div style="display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap;">
@@ -399,8 +450,20 @@
               <b>{formatMmSs(remainingSec)}</b>
             </a>
           {/if}
+          <select
+            aria-label="Bahasa"
+            value={locale}
+            on:change={(e) => setLocale((e.currentTarget as HTMLSelectElement).value as Locale)}
+            class="btn-subtle"
+            style="padding: 5px 6px;"
+          >
+            <option value="id">ID</option>
+            <option value="en">EN</option>
+            <option value="ja">JA</option>
+            <option value="zh">ZH</option>
+          </select>
           <button type="button" class="btn-subtle" on:click={toggleTheme}>
-            {theme === 'kertas' ? 'Malam' : 'Putih'}
+            {theme === 'kertas' ? tUi.dark : tUi.light}
           </button>
         </div>
       </div>
@@ -422,7 +485,7 @@
               style="padding: 6px 9px; font-size: 10px;"
               on:click={() => (mapLayer = k)}
             >
-              {k === 'yield' ? 'Hasil (batlow)' : k === 'clay' ? '% Liat (lajolla)' : 'NDVI (bamako)'}
+              {k === 'yield' ? tUi.layerYield : k === 'clay' ? tUi.layerClay : tUi.layerNdvi}
             </button>
           {/each}
         </div>
@@ -431,7 +494,7 @@
       <!-- Scrubber 120 Hari -->
       <div style="border-top: 1px solid var(--border); padding: 12px 16px; background: var(--bg); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <button type="button" class="btn-primary" style="padding: 7px 12px;" on:click={togglePlay}>
-          {playing ? 'Jeda' : 'Putar Musim'}
+          {playing ? tUi.pause : tUi.play}
         </button>
         <input
           type="range"
@@ -459,16 +522,16 @@
     <aside style="padding: 18px; display: grid; gap: 16px; align-content: start; overflow-y: auto; max-height: calc(100vh - 90px);">
       <div style="display: flex; gap: 6px; flex-wrap: wrap;">
         <button type="button" class={activeTab === 'replay' ? 'btn-primary' : 'btn-subtle'} on:click={() => (activeTab = 'replay')}>
-          Replay &amp; Tanah
+          {tUi.tabReplay}
         </button>
         <button type="button" class={activeTab === 'analisis' ? 'btn-primary' : 'btn-subtle'} on:click={() => (activeTab = 'analisis')}>
-          Lensa Dangkal vs Dalam
+          {tUi.tabLens}
         </button>
         <button type="button" class={activeTab === 'tanah3d' ? 'btn-primary' : 'btn-subtle'} on:click={() => (activeTab = 'tanah3d')}>
-          Blok 3D Tanah
+          {tUi.tab3d}
         </button>
         <button type="button" class={activeTab === 'lahan' ? 'btn-primary' : 'btn-subtle'} on:click={() => (activeTab = 'lahan')}>
-          Lahan Saya (BYOD)
+          {tUi.tabByod}
         </button>
       </div>
 
@@ -500,6 +563,11 @@
               <div class="num" style="font-size: 10.5px; color: var(--ink-muted);">HASIL PETAK (SIMULASI)</div>
               <div class="num" style="font-size: 1.6rem; font-weight: 600;">{selectedPlot.yield_t_ha} t/ha</div>
               <div class="num" style="font-size: 11px;">Liat: {selectedPlot.clay_pct}% · NDVI Puncak: {selectedPlot.ndvi_peak}</div>
+              {#if selectedPlot.area_ha !== undefined}
+                <div class="num" style="font-size: 10.5px; color: var(--ink-muted);">
+                  Luas: {selectedPlot.area_ha} ha · Debu/Pasir: {selectedPlot.silt_pct}%/{selectedPlot.sand_pct}% · Perm: {selectedPlot.permeability} mm/j · Longsor: {selectedPlot.landslide_class}
+                </div>
+              {/if}
               <div class="num" style="font-size: 11px; color: var(--ink-muted);">Drainase: {selectedPlot.drainage}</div>
             </div>
           </div>
@@ -541,16 +609,16 @@
         {/if}
 
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; border-top: 1px solid var(--border); padding-top: 10px;">
-          <button type="button" class="btn-subtle" on:click={copyPermalink}>Salin Permalink</button>
-          <button type="button" class="btn-subtle" on:click={copyEmbed}>Salin Embed</button>
-          <button type="button" class="btn-subtle" on:click={exportSubsetGeoJson}>Ekspor GeoJSON</button>
+          <button type="button" class="btn-subtle" on:click={copyPermalink}>{tUi.copyLink}</button>
+          <button type="button" class="btn-subtle" on:click={copyEmbed}>{tUi.copyEmbed}</button>
+          <button type="button" class="btn-subtle" on:click={exportSubsetGeoJson}>{tUi.exportGeo}</button>
         </div>
         {#if copyNotice}
           <div class="num" style="font-size: 10.5px; color: var(--ink-muted); word-break: break-all;">{copyNotice}</div>
         {/if}
 
         <a href={`/kekeringan/${bundle.linked_kode_bps}/`} class="btn-outline">
-          Lihat Konteks Kekeringan {bundle.regency} →
+          {tUi.bridge} ({bundle.regency}) →
         </a>
       {/if}
     </aside>
