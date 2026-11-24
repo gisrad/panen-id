@@ -49,6 +49,9 @@
     dates: string[];
     rain_mm: number[];
     tmax_c: number[];
+    tmin_c: number[];
+    et0_mm?: number[];
+    weather_source?: string;
     gdd_cum: number[];
     stage_code: string[];
     ndvi_s2_hls: number[];
@@ -69,6 +72,9 @@
   let playing = false;
   let timer: number | null = null;
   let selectedPlotId = 'BP-01';
+  let hoverPlot: PlotProperties | null = null;
+  let shiftDays = 0;
+  let drainageImprovePct = 40;
   let theme: 'malam' | 'kertas' = 'kertas';
   type Locale = 'id' | 'en' | 'ja' | 'zh';
   let locale: Locale = 'id';
@@ -130,6 +136,21 @@
     bundle?.plots.features.find((f) => f.properties.plot_id === selectedPlotId)?.properties ||
     bundle?.plots.features[0]?.properties ||
     null;
+
+  $: whatIfYield = (() => {
+    if (!selectedPlot || !bundle) return null;
+    const base = selectedPlot.yield_t_ha;
+    // Heavy-clay penalty recovery via sub-surface/surface drainage improvement
+    const clayExcess = Math.max(0, selectedPlot.clay_pct - 40);
+    const drainageGain = clayExcess * 0.055 * (drainageImprovePct / 100);
+    // Shifting planting date away from ERA5 dry windows around panicle initiation/heading
+    const dryDays = bundle.stress_windows?.length ? Math.abs(shiftDays) * 0.024 : Math.abs(shiftDays) * 0.01;
+    const shiftGain = shiftDays === 0 ? 0 : Math.min(0.65, dryDays);
+    const projected = Math.min(8.2, Number((base + drainageGain + shiftGain).toFixed(2)));
+    const delta = Number((projected - base).toFixed(2));
+    const pct = base > 0 ? Number(((delta / base) * 100).toFixed(1)) : 0;
+    return { base, projected, delta, pct };
+  })();
 
   function formatMmSs(sec: number): string {
     const s = Math.max(0, Math.floor(sec));
@@ -395,6 +416,15 @@
         const pid = e.features?.[0]?.properties?.plot_id;
         if (pid) selectedPlotId = String(pid);
       });
+      map.on('mousemove', 'panen-fill', (e) => {
+        if (map) map.getCanvas().style.cursor = 'pointer';
+        const props = e.features?.[0]?.properties as PlotProperties | undefined;
+        if (props?.plot_id) hoverPlot = props;
+      });
+      map.on('mouseleave', 'panen-fill', () => {
+        if (map) map.getCanvas().style.cursor = '';
+        hoverPlot = null;
+      });
     });
   });
 
@@ -489,6 +519,14 @@
             </button>
           {/each}
         </div>
+        {#if hoverPlot}
+          <div style="position: absolute; top: 12px; right: 12px; z-index: 10; background: var(--dock-bg); border: 1.5px solid var(--border-ink); padding: 8px 10px; max-width: 240px; pointer-events: none;">
+            <div class="num" style="font-size: 10.5px; font-weight: 600;">{hoverPlot.plot_id} · {hoverPlot.zone}</div>
+            <div class="num" style="font-size: 10px; color: var(--ink-muted); margin-top: 2px;">
+              Hasil {hoverPlot.yield_t_ha} t/ha · Liat {hoverPlot.clay_pct}%{hoverPlot.landslide_class ? ` · ${hoverPlot.landslide_class}` : ''}
+            </div>
+          </div>
+        {/if}
       </div>
 
       <!-- Scrubber 120 Hari -->
@@ -511,8 +549,13 @@
 
       <!-- Grafik uPlot -->
       <div style="border-top: 1px solid var(--border); padding: 10px 16px; background: var(--surface);">
-        <div class="num" style="font-size: 10px; color: var(--ink-muted); margin-bottom: 4px;">
-          HUJAN HARIAN (BIRU), TMAX °C (TERAKOTA), &amp; AKUMULASI GDD/40 (HIJAU)
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
+          <span class="num" style="font-size: 10px; color: var(--ink-muted);">
+            HUJAN HARIAN (BIRU), TMAX °C (TERAKOTA), &amp; AKUMULASI GDD/40 (HIJAU)
+          </span>
+          <span class="num" style="font-size: 9.5px; color: var(--ink-muted);">
+            {bundle?.weather_source || 'Open-Meteo ERA5'}
+          </span>
         </div>
         <div bind:this={chartContainer}></div>
       </div>
@@ -597,6 +640,39 @@
             <div class="pill-badge pill-warn">LENSA DALAM (VARIETAS × TANAH × GDD)</div>
             <p style="margin: 0; font-size: 0.94rem; font-weight: 600;">{selectedPlot.deep_note}</p>
           </div>
+
+          {#if whatIfYield}
+            <div style="border: 1px solid var(--border); padding: 14px; background: var(--bg); display: grid; gap: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                <span class="num" style="font-size: 10.5px; font-weight: 600;">SIMULATOR WHAT-IF MUSIM DEPAN</span>
+                <span class="pill-badge pill-sim">SIMULASI SKENARIO</span>
+              </div>
+              <label style="display: grid; gap: 4px; font-size: 11px;">
+                <span class="num">Geser Tanggal Tanam: {shiftDays >= 0 ? `+${shiftDays}` : shiftDays} hari</span>
+                <input type="range" min="-21" max="21" step="1" bind:value={shiftDays} style="accent-color: #000000;" />
+              </label>
+              <label style="display: grid; gap: 4px; font-size: 11px;">
+                <span class="num">Perbaikan Drainase / Pengolahan Zona Liat: {drainageImprovePct}%</span>
+                <input type="range" min="0" max="100" step="5" bind:value={drainageImprovePct} style="accent-color: #000000;" />
+              </label>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border);">
+                <div style="background: var(--surface); padding: 8px;">
+                  <div class="num" style="font-size: 9.5px; color: var(--ink-muted);">BASIS</div>
+                  <div class="num" style="font-size: 1.05rem; font-weight: 600;">{whatIfYield.base} t/ha</div>
+                </div>
+                <div style="background: var(--surface); padding: 8px;">
+                  <div class="num" style="font-size: 9.5px; color: var(--ink-muted);">PROYEKSI</div>
+                  <div class="num" style="font-size: 1.05rem; font-weight: 600;">{whatIfYield.projected} t/ha</div>
+                </div>
+                <div style="background: var(--surface); padding: 8px;">
+                  <div class="num" style="font-size: 9.5px; color: var(--ink-muted);">SELISIH</div>
+                  <div class="num" style="font-size: 1.05rem; font-weight: 600; color: #1E6B47;">
+                    +{whatIfYield.delta} (+{whatIfYield.pct}%)
+                  </div>
+                </div>
+              </div>
+            </div>
+          {/if}
         {:else if activeTab === 'tanah3d'}
           <SoilBlock3D
             soilProfile={bundle.soil_profile}
