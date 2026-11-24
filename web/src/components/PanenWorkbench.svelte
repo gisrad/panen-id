@@ -30,6 +30,10 @@
     sand_pct?: number;
     permeability?: number;
     landslide_class?: string;
+    yield_2024?: number;
+    yield_2025?: number;
+    yoy_delta_t_ha?: number;
+    stability_class?: 'stabil_tinggi' | 'sensitif_iklim' | 'rentan_kronis';
     ndvi_peak: number;
     drainage: string;
     shallow_note: string;
@@ -61,9 +65,10 @@
   }
 
   let fieldId: 'bompon-magelang' | 'klaten-irigasi' = 'bompon-magelang';
+  let seasonId: 'mt2-2025' | 'mt2-2024' = 'mt2-2025';
   let bundle: FieldBundle | null = null;
   let activeTab: 'replay' | 'analisis' | 'tanah3d' | 'lahan' = 'replay';
-  let mapLayer: 'yield' | 'clay' | 'ndvi' = 'yield';
+  let mapLayer: 'yield' | 'clay' | 'ndvi' | 'stability' = 'yield';
   let isEmbed = false;
   let copyNotice = '';
   let wasmGddFinal: number | null = null;
@@ -171,6 +176,11 @@
       if (p.clay_pct >= 35) return '#BD5319';
       return '#E69135';
     }
+    if (mapLayer === 'stability') {
+      if (p.stability_class === 'stabil_tinggi') return '#1E6B47';
+      if (p.stability_class === 'sensitif_iklim') return '#D97706';
+      return '#B83B14';
+    }
     // Crameri bamako (NDVI)
     if (p.ndvi_peak >= 0.78) return '#003B47';
     if (p.ndvi_peak >= 0.70) return '#265F38';
@@ -228,9 +238,15 @@
     );
   }
 
-  async function loadField(id: 'bompon-magelang' | 'klaten-irigasi') {
+  async function loadField(id: 'bompon-magelang' | 'klaten-irigasi', nextSeason: 'mt2-2025' | 'mt2-2024' = seasonId) {
     fieldId = id;
-    const file = id === 'bompon-magelang' ? 'bompon-mt2-2025.json' : 'klaten-mt2-2025.json';
+    seasonId = id === 'klaten-irigasi' ? 'mt2-2025' : nextSeason;
+    const file =
+      id === 'bompon-magelang'
+        ? seasonId === 'mt2-2024'
+          ? 'bompon-mt2-2024.json'
+          : 'bompon-mt2-2025.json'
+        : 'klaten-mt2-2025.json';
     const res = await fetch(`/ulang/mock-data/${file}`);
     bundle = await res.json();
     selectedPlotId = bundle?.plots.features[0]?.properties.plot_id || '';
@@ -471,6 +487,22 @@
           >
             Irigasi Klaten
           </button>
+          {#if fieldId === 'bompon-magelang'}
+            <button
+              type="button"
+              class={seasonId === 'mt2-2025' ? 'btn-primary' : 'btn-subtle'}
+              on:click={() => loadField('bompon-magelang', 'mt2-2025')}
+            >
+              MT2 2025
+            </button>
+            <button
+              type="button"
+              class={seasonId === 'mt2-2024' ? 'btn-primary' : 'btn-subtle'}
+              on:click={() => loadField('bompon-magelang', 'mt2-2024')}
+            >
+              MT2 2024 (Kering)
+            </button>
+          {/if}
           {#if authenticated}
             <span class="live-badge"><span class="live-dot"></span><span>{userEmail}</span></span>
           {:else}
@@ -508,14 +540,14 @@
 
         <div style="position: absolute; top: 12px; left: 12px; z-index: 10; background: var(--dock-bg); border: 1.5px solid var(--border-ink); padding: 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
           <span class="pill-badge pill-sim">SIMULASI</span>
-          {#each (['yield', 'clay', 'ndvi'] as const) as k}
+          {#each (['yield', 'clay', 'ndvi', 'stability'] as const) as k}
             <button
               type="button"
               class={mapLayer === k ? 'btn-primary' : 'btn-subtle'}
               style="padding: 6px 9px; font-size: 10px;"
               on:click={() => (mapLayer = k)}
             >
-              {k === 'yield' ? tUi.layerYield : k === 'clay' ? tUi.layerClay : tUi.layerNdvi}
+              {k === 'yield' ? tUi.layerYield : k === 'clay' ? tUi.layerClay : k === 'ndvi' ? tUi.layerNdvi : 'Stabilitas 24–25'}
             </button>
           {/each}
         </div>
@@ -640,6 +672,29 @@
             <div class="pill-badge pill-warn">LENSA DALAM (VARIETAS × TANAH × GDD)</div>
             <p style="margin: 0; font-size: 0.94rem; font-weight: 600;">{selectedPlot.deep_note}</p>
           </div>
+
+          {#if selectedPlot.yield_2024 !== undefined && selectedPlot.yield_2025 !== undefined}
+            <div style="border: 1px solid var(--border); padding: 14px; background: var(--bg); display: grid; gap: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span class="num" style="font-size: 10.5px; font-weight: 600;">STABILITAS LINTAS MUSIM (MT2 2024 VS 2025)</span>
+                <span class="pill-badge">{selectedPlot.stability_class || 'sensitif_iklim'}</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border);">
+                <div style="background: var(--surface); padding: 8px;">
+                  <div class="num" style="font-size: 9.5px; color: var(--ink-muted);">MT2 2024 (KERING)</div>
+                  <div class="num" style="font-size: 1.05rem; font-weight: 600;">{selectedPlot.yield_2024} t/ha</div>
+                </div>
+                <div style="background: var(--surface); padding: 8px;">
+                  <div class="num" style="font-size: 9.5px; color: var(--ink-muted);">MT2 2025 (BASAH)</div>
+                  <div class="num" style="font-size: 1.05rem; font-weight: 600;">{selectedPlot.yield_2025} t/ha</div>
+                </div>
+                <div style="background: var(--surface); padding: 8px;">
+                  <div class="num" style="font-size: 9.5px; color: var(--ink-muted);">SELISIH YOY</div>
+                  <div class="num" style="font-size: 1.05rem; font-weight: 600;">+{selectedPlot.yoy_delta_t_ha} t/ha</div>
+                </div>
+              </div>
+            </div>
+          {/if}
 
           {#if whatIfYield}
             <div style="border: 1px solid var(--border); padding: 14px; background: var(--bg); display: grid; gap: 10px;">

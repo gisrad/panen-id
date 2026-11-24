@@ -24,3 +24,9 @@
 
 - Skrip `scripts/fetch_real_weather_openmeteo.py` menarik deret harian riil Open-Meteo ERA5 Reanalysis (`2025-05-01` s.d. `2025-08-28`, 120 hari `tmax`, `tmin`, `rain_mm`, `et0_fao_evapotranspiration`, GDD kumulatif, fenologi, dan jendela stres kering) untuk `bompon-mt2-2025.json` (`1065.8 mm`, `GDD 1656.9`, `68` unit SHP) dan `klaten-mt2-2025.json` (`534.1 mm`, `GDD 2076.2`, `1` jendela stres kering).
 - `PanenWorkbench.svelte` dilengkapi hover tooltip petak real-time, sumber cuaca ERA5, dan **Simulator What-If Musim Depan** (`shiftDays` ±21 hari + perbaikan drainase zona liat `0–100%`). Build `PanenWorkbench.BzWYl3YA.js` = `332.85 kB` gzip; `panen-id-worker` Version `f8d6013e-6f48-4cf5-bd0c-89c1ae381734`.
+
+## Update v1.1 — Perbandingan Multi-Musim MT2 2024 vs 2025 & Peta Stabilitas (2026-11-24)
+
+- Skrip `scripts/build_multiseason_stability.py` mengambil cuaca riil Open-Meteo ERA5 musim kemarau `MT2 2024` (`2024-05-01` s.d. `2024-08-28`, `590.4 mm`, `3` jendela stres kering) ke `bompon-mt2-2024.json` serta menghitung klasifikasi stabilitas hasil lintas musim (`stabil_tinggi: 6`, `sensitif_iklim: 27`, `rentan_kronis: 35`) pada `68` poligon SHP DAS Bompon.
+- `PanenWorkbench.svelte` dilengkapi pemilih musim `MT2 2025` / `MT2 2024 (Kering)`, layer peta `Stabilitas 24–25`, dan kartu komparasi *YoY Delta* di tab *Lensa Dangkal vs Dalam* (`PanenWorkbench.HBGvyhXy.js` = `333.34 kB` gzip; `panen-id-worker` Version `6622f5bd-4eee-4500-9c5f-bd4b52094dc4`).
+- Bundel `v1/season/bompon-real-mt2-2024.json` dan `v1/season/bompon-real-mt2-2025.json` disinkronkan ke R2 `agri-transbulent-data`.
