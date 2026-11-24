@@ -113,7 +113,7 @@
         <div class="tb-acc-tiers">
           <div>
             <div class="tb-acc-tlbl">AKSES</div>
-            <div class="tb-acc-tval">Penuh (7 hari)</div>
+            <div class="tb-acc-tval">Penuh (30 hari)</div>
           </div>
           <div>
             <div class="tb-acc-tlbl">GEE COLAB</div>
