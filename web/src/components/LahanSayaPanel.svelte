@@ -1,5 +1,14 @@
 <script lang="ts">
-  import { computeIdwGrid, computeOlsSummary, type OlsSummary } from '../lib/agroWasm';
+  import {
+    computeFao56Series,
+    computeGddSeries,
+    computeIdwGrid,
+    computeOlsSummary,
+    computePhenologySeries,
+    CROP_PROFILES,
+    type CropKey,
+    type OlsSummary,
+  } from '../lib/agroWasm';
 
   interface ByodRow {
     plot_id: string;
@@ -17,6 +26,32 @@
   let idwGridMinMax: { min: number; max: number; mean: number } | null = null;
   let busy = false;
   let errorMsg = '';
+
+  const HUB_PRESETS: { label: string; lat: number; lon: number }[] = [
+    { label: 'DAS Bompon', lat: -7.55, lon: 110.07 },
+    { label: 'Karawang', lat: -6.31, lon: 107.3 },
+    { label: 'Deli Serdang', lat: 3.55, lon: 98.85 },
+    { label: 'Sidrap', lat: -3.93, lon: 119.79 },
+    { label: 'Merauke', lat: -8.49, lon: 140.4 },
+  ];
+  let weatherLat = -7.55;
+  let weatherLon = 110.07;
+  let weatherStart = '2025-05-01';
+  let weatherEnd = '2025-08-28';
+  let weatherCrop: CropKey = 'padi';
+  let weatherBusy = false;
+  let weatherErr = '';
+  let weatherSummary: {
+    days: number;
+    rainMm: number;
+    meanTmax: number;
+    wasmGdd: number;
+    wasmEt0Mm: number;
+    waterBalanceMm: number;
+    finalStage: string;
+    cached: boolean;
+    source: string;
+  } | null = null;
 
   function buildSampleRows(count: number): ByodRow[] {
     const out: ByodRow[] = [];
@@ -69,10 +104,85 @@
         const mean = gridVals.reduce((a, b) => a + b, 0) / gridVals.length;
         idwGridMinMax = { min, max, mean };
       }
+      if (lonArr.length > 0 && latArr.length > 0) {
+        const cLon = lonArr.reduce((a, b) => a + b, 0) / lonArr.length;
+        const cLat = latArr.reduce((a, b) => a + b, 0) / latArr.length;
+        if (cLat >= -11.5 && cLat <= 6.5 && cLon >= 94.5 && cLon <= 141.5) {
+          weatherLat = Number(cLat.toFixed(4));
+          weatherLon = Number(cLon.toFixed(4));
+        }
+      }
     } catch (err) {
       errorMsg = err instanceof Error ? err.message : 'Gagal menjalankan kernel agro_core.wasm';
     } finally {
       busy = false;
+    }
+  }
+
+  function dayOfYear(isoDate: string): number {
+    const dt = new Date(`${isoDate}T00:00:00Z`);
+    if (Number.isNaN(dt.getTime())) return 150;
+    const start = Date.UTC(dt.getUTCFullYear(), 0, 0);
+    return Math.max(1, Math.min(366, Math.round((dt.getTime() - start) / 86400000)));
+  }
+
+  async function fetchEra5AndComputeWasm() {
+    weatherBusy = true;
+    weatherErr = '';
+    try {
+      const qs = new URLSearchParams({
+        lat: String(weatherLat),
+        lon: String(weatherLon),
+        start: weatherStart,
+        end: weatherEnd,
+      });
+      const res = await fetch(`/api/v1/weather?${qs.toString()}`);
+      if (res.status === 401) {
+        weatherErr = 'Sesi pratinjau 5 menit habis. Masuk dengan Google untuk menarik cuaca ERA5 langsung.';
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) {
+        weatherErr = data?.error === 'invalid_indonesia_bbox'
+          ? 'Koordinat berada di luar batas Indonesia (94.5°–141.5° BT, 11.5° LS–6.5° LU).'
+          : `Gagal menarik data cuaca (${data?.error || res.status}).`;
+        return;
+      }
+      const profile = CROP_PROFILES[weatherCrop];
+      const tmax: number[] = data.tmax_c || [];
+      const tmin: number[] = data.tmin_c || [];
+      const rain: number[] = data.rain_mm || [];
+      const rh: number[] = data.rh_pct || [];
+      const wind: number[] = data.wind_ms || [];
+      const rs: number[] = data.rs_mj || [];
+      const dates: string[] = data.dates || [];
+      const doy = dates.map(dayOfYear);
+
+      const gddArr = await computeGddSeries(tmax, tmin, profile.tbase, profile.tupper);
+      const stageArr = await computePhenologySeries(gddArr, profile.code);
+      const et0Arr = await computeFao56Series(tmax, tmin, rh, wind, rs, doy, weatherLat, 120);
+
+      const totalRain = rain.reduce((a, b) => a + b, 0);
+      const meanTmax = tmax.length ? tmax.reduce((a, b) => a + b, 0) / tmax.length : 0;
+      const finalGdd = gddArr.length ? gddArr[gddArr.length - 1] : 0;
+      const totalEt0 = et0Arr.reduce((a, b) => a + b, 0);
+      const lastStageIdx = stageArr.length ? Math.round(stageArr[stageArr.length - 1]) : 0;
+
+      weatherSummary = {
+        days: dates.length,
+        rainMm: Number(totalRain.toFixed(1)),
+        meanTmax: Number(meanTmax.toFixed(1)),
+        wasmGdd: Number(finalGdd.toFixed(0)),
+        wasmEt0Mm: Number(totalEt0.toFixed(1)),
+        waterBalanceMm: Number((totalRain - totalEt0).toFixed(1)),
+        finalStage: profile.stages[Math.min(5, Math.max(0, lastStageIdx))],
+        cached: Boolean(data.cached),
+        source: String(data.source || 'Open-Meteo ERA5 Archive'),
+      };
+    } catch (err) {
+      weatherErr = err instanceof Error ? err.message : 'Gagal menghitung GDD & ET0 di WASM.';
+    } finally {
+      weatherBusy = false;
     }
   }
 
@@ -314,4 +424,102 @@
       </table>
     </div>
   {/if}
+
+  <div style="border: 1px solid var(--border-ink); padding: 14px; background: var(--surface); display: grid; gap: 10px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <span class="num" style="font-size: 10.5px; font-weight: 600;">
+        TARIK CUACA ERA5 NUSANTARA &amp; HITUNG GDD/ET0 (WASM)
+      </span>
+      <span class="pill-badge">INDONESIA · /api/v1/weather</span>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+      {#each HUB_PRESETS as p}
+        <button
+          type="button"
+          class={Math.abs(weatherLat - p.lat) < 0.05 && Math.abs(weatherLon - p.lon) < 0.05 ? 'btn-primary' : 'btn-subtle'}
+          style="padding: 4px 7px; font-size: 10px;"
+          on:click={() => {
+            weatherLat = p.lat;
+            weatherLon = p.lon;
+          }}
+        >
+          {p.label}
+        </button>
+      {/each}
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 8px;">
+      <label style="display: grid; gap: 3px; font-size: 10.5px;">
+        <span class="num" style="color: var(--ink-muted);">LAT (°)</span>
+        <input type="number" step="0.01" min="-11.5" max="6.5" bind:value={weatherLat} style="padding: 5px 6px; border: 1px solid var(--border-ink); background: var(--bg); color: var(--ink); font-family: inherit;" />
+      </label>
+      <label style="display: grid; gap: 3px; font-size: 10.5px;">
+        <span class="num" style="color: var(--ink-muted);">LON (°)</span>
+        <input type="number" step="0.01" min="94.5" max="141.5" bind:value={weatherLon} style="padding: 5px 6px; border: 1px solid var(--border-ink); background: var(--bg); color: var(--ink); font-family: inherit;" />
+      </label>
+      <label style="display: grid; gap: 3px; font-size: 10.5px;">
+        <span class="num" style="color: var(--ink-muted);">MULAI</span>
+        <input type="date" bind:value={weatherStart} style="padding: 5px 6px; border: 1px solid var(--border-ink); background: var(--bg); color: var(--ink); font-family: inherit;" />
+      </label>
+      <label style="display: grid; gap: 3px; font-size: 10.5px;">
+        <span class="num" style="color: var(--ink-muted);">SELESAI</span>
+        <input type="date" bind:value={weatherEnd} style="padding: 5px 6px; border: 1px solid var(--border-ink); background: var(--bg); color: var(--ink); font-family: inherit;" />
+      </label>
+      <label style="display: grid; gap: 3px; font-size: 10.5px;">
+        <span class="num" style="color: var(--ink-muted);">KOMODITAS</span>
+        <select bind:value={weatherCrop} style="padding: 5px 6px; border: 1px solid var(--border-ink); background: var(--bg); color: var(--ink); font-family: inherit;">
+          <option value="padi">Padi Sawah</option>
+          <option value="jagung">Jagung Hibrida</option>
+          <option value="kedelai">Kedelai</option>
+          <option value="bawang">Bawang Merah</option>
+          <option value="tebu">Tebu</option>
+        </select>
+      </label>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <button type="button" class="btn-primary" style="font-size: 11.5px;" disabled={weatherBusy} on:click={fetchEra5AndComputeWasm}>
+        {weatherBusy ? 'Menarik ERA5 & Menghitung WASM...' : 'Tarik ERA5 & Hitung WASM GDD/ET0'}
+      </button>
+      {#if weatherSummary}
+        <span class="num" style="font-size: 10.5px; color: var(--ink-muted);">
+          {weatherSummary.days} hari · {weatherSummary.source} ({weatherSummary.cached ? 'KV Cache' : 'Live'})
+        </span>
+      {/if}
+    </div>
+
+    {#if weatherErr}
+      <div style="border: 1px solid #B83B14; padding: 8px 10px; color: #B83B14; font-size: 0.84rem;">
+        {weatherErr}
+      </div>
+    {/if}
+
+    {#if weatherSummary}
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border);">
+        <div style="background: var(--bg); padding: 8px 10px;">
+          <div class="num" style="font-size: 9.5px; color: var(--ink-muted);">GDD KUMULATIF · FASE AKHIR</div>
+          <div class="num" style="font-size: 1.08rem; font-weight: 600;">
+            {weatherSummary.wasmGdd} · {weatherSummary.finalStage}
+          </div>
+        </div>
+        <div style="background: var(--bg); padding: 8px 10px;">
+          <div class="num" style="font-size: 9.5px; color: var(--ink-muted);">FAO-56 ET0 WASM</div>
+          <div class="num" style="font-size: 1.08rem; font-weight: 600;">{weatherSummary.wasmEt0Mm} mm</div>
+        </div>
+        <div style="background: var(--bg); padding: 8px 10px;">
+          <div class="num" style="font-size: 9.5px; color: var(--ink-muted);">TOTAL HUJAN ERA5 · TMAX RATA2</div>
+          <div class="num" style="font-size: 1.08rem; font-weight: 600;">
+            {weatherSummary.rainMm} mm · {weatherSummary.meanTmax}°C
+          </div>
+        </div>
+        <div style="background: var(--bg); padding: 8px 10px;">
+          <div class="num" style="font-size: 9.5px; color: var(--ink-muted);">NERACA AIR (HUJAN − ET0)</div>
+          <div class="num" style="font-size: 1.08rem; font-weight: 600; color: {weatherSummary.waterBalanceMm >= 0 ? '#1E6B47' : '#B83B14'};">
+            {weatherSummary.waterBalanceMm >= 0 ? '+' : ''}{weatherSummary.waterBalanceMm} mm
+          </div>
+        </div>
+      </div>
+    {/if}
+  </div>
 </div>
