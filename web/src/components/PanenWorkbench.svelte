@@ -6,6 +6,7 @@
   import 'uplot/dist/uPlot.min.css';
   import CropStageSvg from './CropStageSvg.svelte';
   import TrialOverlay from './TrialOverlay.svelte';
+  import AccountMenu from './AccountMenu.svelte';
   import SoilBlock3D from './SoilBlock3D.svelte';
   import LahanSayaPanel from './LahanSayaPanel.svelte';
   import {
@@ -141,6 +142,9 @@
   let remainingSec = 300;
   let authenticated = false;
   let userEmail = '';
+  let userName = '';
+  let userAvatar = '';
+  let userRole = '';
   let wallActive = false;
 
   let mapContainer: HTMLDivElement;
@@ -599,15 +603,14 @@
               MT2 2024 (Kering)
             </button>
           {/if}
-          {#if authenticated}
-            <span class="live-badge"><span class="live-dot"></span><span>{userEmail}</span></span>
-          {:else}
-            <a href="/lobby/" class="live-badge">
-              <span class={`live-dot ${remainingSec <= 60 ? 'is-warn' : ''}`}></span>
-              <span>Pratinjau</span>
-              <b>{formatMmSs(remainingSec)}</b>
-            </a>
-          {/if}
+          <AccountMenu
+            {authenticated}
+            {userEmail}
+            {userName}
+            {userAvatar}
+            {remainingSec}
+            nextPath="/ulang/bompon-magelang/mt2-2025/"
+          />
           <select
             aria-label="Bahasa"
             value={locale}
@@ -957,5 +960,5 @@
     </aside>
   </main>
 
-  <TrialOverlay bind:remainingSec bind:authenticated bind:userEmail bind:wallActive />
+  <TrialOverlay bind:remainingSec bind:authenticated bind:userEmail bind:userName bind:userAvatar bind:userRole bind:wallActive />
 </div>

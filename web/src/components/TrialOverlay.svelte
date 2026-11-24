@@ -4,6 +4,9 @@
   export let remainingSec = 300;
   export let authenticated = false;
   export let userEmail = '';
+  export let userName = '';
+  export let userAvatar = '';
+  export let userRole = '';
   export let wallActive = false;
 
   let forceTestWall = false;
@@ -23,6 +26,9 @@
         if (!data) return;
         authenticated = Boolean(data.authenticated);
         userEmail = data.user?.email || '';
+        userName = data.user?.name || '';
+        userAvatar = data.user?.avatarUrl || '';
+        userRole = data.user?.role || '';
         if (!authenticated && typeof data.trialExpiresAtMs === 'number') {
           expiresAtMs = data.trialExpiresAtMs;
           serverOffsetMs = (data.serverNowMs || Date.now()) - Date.now();
