@@ -564,6 +564,7 @@
           <a href="/ulang/bompon-magelang/mt2-2025/" class="on">{tUi.replay}</a>
           <a href="/kekeringan/">{tUi.drought}</a>
           <a href="/metode/">{tUi.methods}</a>
+          <a href="/data/">Data</a>
           <a href="/lobby/">{tUi.lobby}</a>
         </nav>
 

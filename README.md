@@ -7,7 +7,7 @@
 **Observatorium *Musim Ulang (Season Replay)* open-source untuk menjelaskan *di mana, kapan, dan karena apa* hasil panen berbeda—memadukan peta petak/lahan, 6 horizon tanah, cuaca riil ERA5, kernel Rust WebAssembly (`agro-core`), serta blok tanah 3D Three.js (*lazy-load*).**
 
 [![Live Observatory](https://img.shields.io/badge/Live_Observatory-agri.transbulent.id%2Fulang-0F172A?style=flat-square&logo=cloudflare&logoColor=white)](https://agri.transbulent.id/ulang/bompon-magelang/mt2-2025/)
-[![Rust WASM](https://img.shields.io/badge/Kernel-Rust_WASM_31.8_KB-1E6B47?style=flat-square&logo=rust&logoColor=white)](./crates/agro-core/)
+[![Rust WASM](https://img.shields.io/badge/Kernel-Rust_WASM_54_KB-1E6B47?style=flat-square&logo=rust&logoColor=white)](./crates/agro-core/)
 [![Frontend Stack](https://img.shields.io/badge/UI-Astro_5_%2B_Svelte_5_%2B_MapLibre_%2B_Three.js-B83B14?style=flat-square)](./web/)
 [![BYOD Local-First](https://img.shields.io/badge/Privacy-Local--First_BYOD-334155?style=flat-square)](https://agri.transbulent.id/ulang/lahan-saya)
 [![License](https://img.shields.io/badge/License-MIT-000000?style=flat-square)](./CITATION.cff)
@@ -50,10 +50,10 @@ Most harvest maps stop at a *shallow read*—ranking hybrids or averaging yields
 ### Key Capabilities
 
 - **68 Real Geomorphic Landform Units (`DAS Bompon`)**: Real watershed landform polygons preserving measured clay/silt/sand fractions, permeability (`mm/hr`), landslide susceptibility classes, and SoilGrids 6-horizon depth profiles (`0–200 cm`), paired with irrigated lowland comparison (`Klaten`).
-- **Pure-Rust WebAssembly Math Kernel (`crates/agro-core`)**: Zero-dependency C-ABI Rust compiled to WebAssembly (`~31.9 KB`) for fast in-browser modified **GDD**, **FAO-56 Penman-Monteith $ET_0$**, **IDW spatial interpolation**, and **OLS regression** with a built-in `n < 30` statistical guard against underpowered inference.
+- **Pure-Rust WebAssembly ML & 5-Crop Phenology (`crates/agro-core`)**: Zero-dependency C-ABI Rust compiled to WebAssembly (`~54 KB`) running in-browser modified **GDD** & **phenology stages across 5 Indonesian crops** (*Padi*, *Jagung*, *Kedelai*, *Bawang Merah*, *Tebu*), **FAO-56 Penman-Monteith $ET_0$**, **IDW interpolation**, quantile-seeded **K-Means 3 management zones (`Zona AI`)** with Silhouette score, and **4×4 Ridge Explainable AI** (global feature importance + per-plot yield attribution with `n < 30` statistical guard).
 - **Multi-Season Stability (`MT2 2024` vs `MT2 2025`) & What-If Simulator**: Uses real archived **Open-Meteo ERA5** daily weather (`120` days per season) to compare a dry season (`2024`, `590.4 mm`) against a wetter season (`2025`, `1,065.8 mm`), classify units (`stabil_tinggi`, `sensitif_iklim`, `rentan_kronis`), and test planting-date shifts or clay-zone drainage improvements.
 - **Lazy 3D Stratigraphic Block (`Three.js`)**: Dynamically imports `three.js` only when opening the 3D tab, keeping initial bundle size lightweight while visualizing surface yield relief atop 6 subsurface horizons.
-- **Local-First BYOD Workspace (`/lahan-saya`)**: Analyze private `.csv` or `.geojson` farm plots anywhere in Indonesia (`95°–141° E, 6° N–11° S`) directly inside browser memory—raw farm records are never uploaded to servers.
+- **Local-First BYOD + Indonesia ERA5 Weather Diagnostics (`/lahan-saya`)**: Analyze private `.csv` or `.geojson` farm plots anywhere across Indonesia (`95°–141° E, 6° N–11° S`) directly inside browser memory, fetch KV-cached archipelago Open-Meteo ERA5 series (`/api/v1/weather`), and compute client-side WASM `GDD`, phenology, and FAO-56 water balance—plus compact D1 shortlink sharing (`/s/[slug]`).
 - **Reproducible Earth Observation Pipeline (`pipeline/`)**: Sentinel-2 L2A reflectance processing explicitly handling Processing Baseline >= 04.00 radiometric offset (`BOA_ADD_OFFSET = -1000`), SCL cloud masking, gap interpolation, and smooth NDVI curves.
 - **Cross-Pillar Climate Context**: Direct jump links into regional soil-landscape drought indices ([`drought-in-control`](https://github.com/gisrad/drought-in-control)) at [`/kekeringan/`](https://agri.transbulent.id/kekeringan/).
 
@@ -62,7 +62,7 @@ Most harvest maps stop at a *shallow read*—ranking hybrids or averaging yields
 ```mermaid
 flowchart LR
   Data["ERA5 Daily Weather + SoilGrids + Landform SHP + Sentinel-2 L2A"] -->|"Python Pipeline"| Static["Versioned Season Bundles"]
-  Rust["Rust C-ABI (crates/agro-core)"] -->|"wasm32-unknown-unknown"| Wasm["agro_core.wasm (~32 KB)"]
+  Rust["Rust C-ABI ML + Agro Kernel (crates/agro-core)"] -->|"wasm32-unknown-unknown"| Wasm["agro_core.wasm (~54 KB)"]
   Static --> App["Astro 5 + Svelte 5 + MapLibre GL v5 + uPlot"]
   Wasm --> App
   App -->|"Lazy Import"| Three["Three.js 3D Soil Block"]
@@ -99,10 +99,10 @@ Peta panen biasa umumnya berhenti pada *pembacaan dangkal* (menyalahkan benih at
 ### Fitur Utama
 
 - **68 Unit Bentuk Lahan Riil DAS Bompon & Irigasi Klaten**: Poligon geomorfologi riil lengkap dengan kadar Liat/Debu/Pasir terukur, permeabilitas tanah, kelas rawan longsor, dan profil 6 horizon SoilGrids (`0–200 cm`).
-- **Mesin Komputasi Rust WebAssembly (`crates/agro-core`)**: Biner WASM ringkas (`~31,9 KB`) di sisi klien untuk menghitung **GDD termodifikasi**, **evapotranspirasi acuan FAO-56**, **interpolasi IDW**, serta **regresi OLS** lengkap dengan *guard statistik* otomatis saat `n < 30` sampel.
+- **Mesin ML & Fenologi Rust WebAssembly (`crates/agro-core`)**: Biner WASM ringkas (`~54 KB`) di sisi klien untuk fenologi **5 komoditas Indonesia** (*Padi*, *Jagung*, *Kedelai*, *Bawang Merah*, *Tebu*), **FAO-56 $\text{ET}_0$**, **interpolasi IDW**, klasterisasi **`Zona AI (K-Means)`** 3 zona manajemen, serta **Explainable AI Regresi Ridge $4 \times 4$** (*Feature Importance* global + atribusi hasil per petak lengkap dengan guard `n < 30` sampel).
 - **Peta Stabilitas Lintas Musim (`MT2 2024` vs `MT2 2025`) & Simulator What-If**: Membandingkan musim kemarau riil ERA5 `2024` (`590,4 mm`) melawan musim basah `2025` (`1.065,8 mm`) guna memetakan petak stabil vs rentan kronis serta menguji skenario geser tanggal tanam dan perbaikan drainase zona liat berat.
 - **Blok Stratigrafi Tanah 3D (`Three.js` Lazy)**: Memvisualisasikan relief hasil panen di atas dinding 6 lapisan tanah secara interaktif tanpa membebani muatan awal halaman.
-- **Ruang Kerja Privat *Local-First* (`/lahan-saya`)**: Unggah berkas CSV atau GeoJSON lahan dari seluruh wilayah Indonesia (`95°–141° BT, 6° LU–11° LS`) dan analisis langsung di memori peramban tanpa mengirim data mentah ke server.
+- **Ruang Kerja Privat *Local-First* + Cuaca ERA5 Nusantara (`/lahan-saya`)**: Unggah CSV/GeoJSON dari seluruh wilayah Indonesia (`95°–141° BT, 6° LU–11° LS`), tarik deret cuaca harian Open-Meteo ERA5 (`/api/v1/weather`), dan hitung neraca air FAO-56 + GDD langsung di WASM peramban, serta berbagi via tautan singkat D1 (`/s/[slug]`).
 - **Pipeline Sentinel-2 L2A (`pipeline/`)**: Menangani koreksi offset radiometrik Baseline >= 04.00 (`BOA_ADD_OFFSET = -1000`), masking awan SCL, dan interpolasi kurva NDVI.
 
 ### Keamanan & Provenans Data
