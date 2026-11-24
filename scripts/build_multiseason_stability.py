@@ -6,7 +6,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-MOCK_DIR = Path(r"C:\Users\anggi\.gemini\antigravity\scratch\panen-id\web\public\mock-data")
+MOCK_DIR = Path(__file__).resolve().parent.parent / "web" / "public" / "mock-data"
 PATH_2025 = MOCK_DIR / "bompon-mt2-2025.json"
 PATH_2024 = MOCK_DIR / "bompon-mt2-2024.json"
 

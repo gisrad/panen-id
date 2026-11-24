@@ -2,13 +2,20 @@
 
 import json
 import math
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
 
-SHP_PATH = Path(r"D:\GIS_DATA\bompon\raw\legacy\landform_bompon.shp")
-BUNDLE_PATH = Path(r"C:\Users\anggi\.gemini\antigravity\scratch\panen-id\web\public\mock-data\bompon-mt2-2025.json")
+ROOT = Path(__file__).resolve().parent.parent
+SHP_PATH = Path(
+    sys.argv[1]
+    if len(sys.argv) > 1
+    else os.environ.get("BOMPON_LANDFORM_SHP", "./data/landform_bompon.shp")
+)
+BUNDLE_PATH = ROOT / "web" / "public" / "mock-data" / "bompon-mt2-2025.json"
 
 
 def round_coords(obj: Any, precision: int = 5) -> Any:

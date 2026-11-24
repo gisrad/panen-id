@@ -1,14 +1,9 @@
-# Roadmap Build — Panen-ID (`P0–P7`)
+# Roadmap — Panen-ID
 
-Selaras dengan fase terpadu `F3`, `F5`, `F6`, `F7b`, `F8`, dan `F10` pada dokumen payung `D:\transbulent.id\docs\agri\ROADMAP.md`.
-
-| Fase | Sinkron Payung | Hasil Utama | Kriteria Selesai |
-| --- | --- | --- | --- |
-| **P0** | `F0` | Inisialisasi SSOT `panen-id` (`README`, `docs/*`, `.gitignore`, `.env.example`) | 8 berkas terdokumentasi dan ter-push ke `gisrad/panen-id` |
-| **P1** | `F3` | Scaffold `web/` (Astro 5 + Svelte 5) + `worker/` + Dok Melayang + i18n (`id`/`en`/`ja`/`zh`) + dataset mock realistis DAS Bompon & sawah irigasi Jateng | Build hijau, peta dasar terbuka di `127.0.0.1:4327`, label `SIMULASI` jelas |
-| **P2** | `F5` | Crate Rust `crates/agro-core` → WASM (GDD, fenologi, FAO-56, stres, IDW, zonal, OLS/RF) + spike evaluasi `geolibre-rust` | Unit test cocok dengan contoh baku FAO-56; keputusan *go/no-go* `geolibre-rust` tercatat |
-| **P3** | `F6` | Tampilan Replay (`/ulang/[lahan]/[musim]`): peta 2D MapLibre + *scrubber* 60 fps + grafik `uPlot` + SVG tanaman progresif + Blok 3D (`three.js` lazy, 6 horizon SoilGrids) | JS peta 2D <= 350 KB gzip; sinkronisasi scrubber mulus; 3D ter-lazy-load |
-| **P4** | `F6` | Tampilan Analisis (`/analisis/[lahan]`): Lensa Dangkal vs Dalam, stabilitas, zona manajemen, guard $n < 30$, insight template, + jembatan lintas pilar dari `/kekeringan` | Angka cocok terhadap notebook referensi Python |
-| **P5** | `F7b` | Pipeline Python (`pipeline/`): Open-Meteo, CHIRPS, SoilGrids, DEMNAS/LiDAR Bompon (internal), S2/HLS (dengan koreksi `BOA_ADD_OFFSET = -1000`), S1 VH -> R2 | Skrip *reproducible*, uji offset Baseline 04.00 lulus |
-| **P6** | `F8` | Ruang kerja `/lahan-saya` (*local-first* IndexedDB + DuckDB-WASM), unggah CSV/GeoJSON/SHP zip, ekspor subset (CSV/GeoJSON/GeoParquet/PNG) & antrean NDVI Cloud Run Job | Uji 3 format unggahan lulus; file ekspor valid di QGIS |
-| **P7** | `F10` | Deploy `panen-id-worker` (`workers_dev = false`) + integrasi penuh Service Binding `PANEN` ke `agri-gateway` + Playwright E2E | Seluruh alur teruji pada `https://agri.transbulent.id/ulang/...` |
+| Stage | Milestone | Status |
+| --- | --- | --- |
+| **1. Season Replay Foundation** | Astro 5 + Svelte 5 + MapLibre GL v5 + `uPlot`, progressive crop phenology SVG, 120-day daily scrubber, and Shallow vs Deep lens analysis | Completed |
+| **2. Rust WASM `agro-core`** | Zero-dependency C-ABI WASM module (`GDD`, `FAO-56 ET0`, `IDW`, `OLS` with `n < 30` statistical guard) & GeoLibre spike evaluation (`ADR_GEOLIBRE_SPIKE.md`) | Completed |
+| **3. Real Geomorphology & 3D Block** | 68 real DAS Bompon landform polygons (`Clay`/`Silt`/`Sand`, permeability, landslide classes) + lazy-loaded Three.js 6-horizon 3D stratigraphic block | Completed |
+| **4. Real ERA5 & Multi-Season Stability** | Open-Meteo ERA5 `MT2 2024` (dry) vs `MT2 2025` (wet) YoY yield comparison, `Stabilitas 24–25` map layer, interactive What-If simulator & BYOD CSV/GeoJSON workbench | Completed |
+| **5. Multi-Commodity Expansion (Planned)** | Additional Indonesian crop phenology plugins (soybean, highland horticulture, sugarcane, tidal lowlands) and provincial R2 partitioning | Planned |

@@ -7,7 +7,7 @@ S2_SCALE = 10000.0
 S2_BOA_ADD_OFFSET = -1000.0
 S2_BASELINE_04_CUTOFF = "2022-01-25"
 
-R2_BUCKET = os.environ.get("R2_BUCKET", "agri-transbulent-data")
+R2_BUCKET = os.environ.get("R2_BUCKET", "season-replay-data")
 R2_ENDPOINT = os.environ.get("R2_ENDPOINT", "")
 R2_PREFIX = os.environ.get("SEASON_R2_PREFIX", "v1/season")
 

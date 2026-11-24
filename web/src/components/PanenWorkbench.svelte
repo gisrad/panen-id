@@ -391,8 +391,11 @@
     if (qTab === 'replay' || qTab === 'analisis' || qTab === 'tanah3d' || qTab === 'lahan') activeTab = qTab;
     const qLayer = qs.get('layer');
     if (qLayer === 'yield' || qLayer === 'clay' || qLayer === 'ndvi') mapLayer = qLayer;
-    const qDay = Number(qs.get('day'));
-    if (Number.isInteger(qDay) && bundle && qDay >= 0 && qDay < bundle.dates.length) dayIdx = qDay;
+    const rawDay = qs.get('day');
+    if (rawDay !== null && rawDay !== '') {
+      const qDay = Number(rawDay);
+      if (Number.isInteger(qDay) && bundle && qDay >= 0 && qDay < bundle.dates.length) dayIdx = qDay;
+    }
     const qPlot = qs.get('plot');
     if (qPlot && bundle?.plots.features.some((f) => f.properties.plot_id === qPlot)) selectedPlotId = qPlot;
 

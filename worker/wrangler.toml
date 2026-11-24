@@ -1,6 +1,5 @@
 name = "panen-id-worker"
 main = "src/index.js"
-account_id = "93020c02a7ce9d66a15b7569a2413bb2"
 compatibility_date = "2026-01-01"
 workers_dev = false
 preview_urls = false

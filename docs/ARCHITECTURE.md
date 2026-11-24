@@ -1,32 +1,21 @@
-# Arsitektur — Panen-ID (Musim Ulang)
+# Architecture — Panen-ID (`Season Replay`)
 
-## 1. Struktur Direktori Repositori
+## 1. Repository Layout
 
 ```text
 panen-id/
-├── web/                          # Astro 5 + Svelte 5 + MapLibre GL v5 + three.js (lazy) + uPlot
-│   ├── public/data/mock/         # Dataset simulasi Jateng & DAS Bompon untuk pengembangan lokal
-│   ├── src/pages/                # /ulang/[lahan]/[musim], /analisis/[lahan], /lahan-saya
-│   └── src/components/           # Island peta 2D, Blok 3D, scrubber, uPlot, SVG tanaman
-├── crates/
-│   └── agro-core/                # Rust -> wasm32-unknown-unknown via wasm-bindgen
-│       ├── src/                  # gdd, phenology, fao56, stress, idw, zonal, stats (OLS/RF/kmeans)
-│       └── tests/                # Unit tests terhadap contoh baku FAO-56
-├── pipeline/                     # Python 3.11+ offline bake (Open-Meteo, CHIRPS, SoilGrids, LiDAR, S2/HLS, S1)
-├── worker/                       # Cloudflare Worker panen-id-worker (Static Assets + Binding PANEN)
-├── docs/                         # SSOT lokal panen-id
-├── .env.example
-└── .gitignore
+├── crates/agro-core/        # Pure-Rust C-ABI WebAssembly kernel (< 35 KB): GDD, FAO-56 ET0, IDW & OLS
+├── pipeline/                # Sentinel-2 L2A radiometric offset + SCL masking & seasonal bundle export
+├── scripts/                 # Open-Meteo ERA5 archive sync, landform polygon extraction & YoY stability
+├── web/                     # Astro 5 + Svelte 5 + MapLibre GL v5 + uPlot + lazy Three.js + WASM bridge
+│   ├── public/mock-data/    # MT2 2024 & MT2 2025 real ERA5 + landform datasets
+│   └── public/wasm/         # Compiled agro_core.wasm
+└── docs/                    # Architecture, scientific methodology & build progress
 ```
 
-## 2. Integrasi ke `agri.transbulent.id` & Mode Jalan Mandiri
+## 2. Core Technical Architecture
 
-- **Produksi (`Service Binding PANEN`)**: `panen-id-worker` di-deploy tanpa rute publik langsung (`workers_dev = false`, `preview_urls = false`). Seluruh permintaan `/ulang/*`, `/analisis/*`, dan `/lahan-saya` masuk melalui `workers/agri-gateway` di `D:\transbulent.id` sehingga gerbang pratinjau 5 menit (`overlay`) dan sesi Google OAuth `__Host-agri_session` otomatis berlaku.
-- **Pengembangan Mandiri (Lokal)**: `web/` berjalan di `http://127.0.0.1:4327` memakai mock JSON lokal tanpa memerlukan kredensial R2 maupun gateway.
-
-## 3. Kontrak Sistem Desain Bersama (`agri-tokens`)
-
-- **Tema Default**: **Malam Sawah** (`#13110E` / `#1C1915` / `#2A251F`, garis `#3A332B`) untuk inspeksi peta hasil & Blok 3D; mendukung switch ke **Kertas Beras** (`#F3EEE2` / `#1C1A16`).
-- **Tipografi**: `Newsreader` (judul), `Schibsted Grotesk` (UI), `IBM Plex Mono` (`tabular-nums` untuk koordinat, GDD, dan hasil panen), serta system font stack untuk `ja`/`zh`.
-- **Colormap Ilmiah (Crameri, Aman Buta Warna)**: Hasil panen = `batlow`; Anomali hasil/suhu = `vik`; NDVI = `bamako`; % Liat = `lajolla`; Hujan = `oslo`.
-- **Dok Melayang & Anggaran Performa**: berbagi spesifikasi Dok Melayang (pil 56 px, drag/snap, auto-hide scroll, pintasan `1`–`5` & `/`, Mode Ringkas, bottom sheet 3 snap di mobile). JS peta 2D <= **350 KB gzip**; `three.js` dimuat *lazy* hanya ketika mode Blok 3D diaktifkan.
+- **Static-First Cartographic Workbench**: Built with Astro 5, Svelte 5, MapLibre GL v5, and `uPlot` so initial interactive loads stay compact (`<= 335 kB` gzipped), while `three.js` (`SoilBlock3D.svelte`) is dynamically imported only when inspecting the 3D horizon block.
+- **Zero-Glue Rust WebAssembly Engine (`crates/agro-core`)**: Exposes a pure C-ABI compiled to `wasm32-unknown-unknown` (~31 KB) computing modified Growing Degree Days, FAO-56 Penman-Monteith $ET_0$, Inverse Distance Weighting (`IDW`), and OLS regression with an automatic small-sample guard (`n < 30`).
+- **Local-First BYOD Workspace (`/lahan-saya`)**: Growers can load local CSV or GeoJSON yield records (`95°–141° E, 6° N–11° S`) for instant in-browser IDW/OLS diagnostics and QGIS-ready exports without transmitting raw farm records to external servers.
+- **Clean Data Provenance**: Synthetic yield estimates are explicitly flagged (`is_simulated: true` / `SIMULASI`), while weather timelines use archived Open-Meteo ERA5 daily reanalysis and measured soil texture attributes.
